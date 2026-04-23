@@ -1,0 +1,2202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="매장점검">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f5f4f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<title>매장 점검 보고서 툴</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f5f4f0;--surface:#fff;--surface2:#efece7;--border:rgba(0,0,0,.09);--border2:rgba(0,0,0,.15);
+  --text:#1a1917;--text2:#6b6860;--text3:#a09e99;
+  --green:#1e6b47;--green-bg:#e4f5ec;--amber:#854f0b;--amber-bg:#fef3c7;
+  --blue:#1e40af;--blue-bg:#eff6ff;--red:#991b1b;--red-bg:#fef2f2;
+  --accent:#1e6b47;--r:12px;--rs:8px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#111110;--surface:#1c1b19;--surface2:#252420;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);
+  --text:#f0ede8;--text2:#a09e99;--text3:#6b6860;
+  --green:#6ee7b7;--green-bg:#064e3b;--amber:#fcd34d;--amber-bg:#451a03;
+  --blue:#93c5fd;--blue-bg:#1e3a5f;--red:#fca5a5;--red-bg:#450a0a;
+}}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);display:flex;}
+.sidebar{width:220px;height:100vh;position:fixed;top:0;left:0;background:var(--surface);border-right:1px solid var(--border);padding:1.25rem 0;overflow-y:auto;z-index:300;transition:transform .25s;}
+.sidebar-brand{font-size:16px;font-weight:700;padding:0 1.25rem .75rem;color:var(--accent);letter-spacing:-.02em;}
+.sidebar-section{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:.9rem 1.25rem .4rem;}
+.sidebar-item{display:flex;align-items:center;gap:8px;width:100%;padding:9px 1.25rem;border:none;background:none;font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;font-size:13px;color:var(--text2);cursor:pointer;text-align:left;transition:all .12s;border-left:3px solid transparent;}
+.sidebar-item:hover{background:var(--surface2);color:var(--text);}
+.sidebar-item.active{background:var(--green-bg);color:var(--accent);font-weight:700;border-left-color:var(--accent);}
+.si-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.mobile-menu{display:none;position:fixed;top:12px;left:12px;z-index:400;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:6px 10px;font-size:18px;cursor:pointer;color:var(--text);}
+.main-area{margin-left:220px;flex:1;min-height:100vh;}
+.page{display:none;max-width:960px;margin:0 auto;padding:1.5rem 1.5rem 4rem;}
+.page.active{display:block;}
+.page.full-width{max-width:100%;padding:1.25rem 2rem 4rem;}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);}
+  .sidebar.open{transform:translateX(0);box-shadow:4px 0 20px rgba(0,0,0,.1);}
+  .mobile-menu{display:block;}
+  .main-area{margin-left:0;}
+  .page{padding:1.25rem 1rem 4rem;padding-top:3.5rem;}
+  .page.full-width{padding:1rem .75rem 4rem;padding-top:3.5rem;}
+}
+.sec{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem;}
+.sec-title{font-size:14px;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:8px;}
+label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;}
+/* ④ 매출입력 숫자 스피너(업다운 버튼) 완전 제거 */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+input[type=number]{-moz-appearance:textfield;appearance:textfield;}
+input[type=text],input[type=date],input[type=number],input[type=time],textarea,select{
+  width:100%;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--rs);
+  background:var(--surface2);color:var(--text);font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;font-size:13px;outline:none;transition:border .15s;}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);}
+textarea{resize:vertical;min-height:80px;}
+.field{margin-bottom:.9rem;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+@media(max-width:600px){.row2,.row3{grid-template-columns:1fr;}}
+.divider{border:none;border-top:1px dashed var(--border2);margin:1rem 0;}
+.sales-table{width:100%;border-collapse:collapse;}
+.sales-table th{font-size:11px;font-weight:500;color:var(--text2);text-align:left;padding:6px;border-bottom:1px solid var(--border);}
+.sales-table td{padding:4px;border-bottom:1px solid var(--border);}
+.sales-table td input{padding:5px 7px;font-size:13px;font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;}
+.add-row-btn{font-size:12px;color:var(--accent);background:none;border:1px dashed var(--border2);border-radius:var(--rs);padding:6px 12px;cursor:pointer;width:100%;margin-top:8px;}
+.add-row-btn:hover{background:var(--surface2);}
+.qsc-list{display:flex;flex-direction:column;gap:6px;}
+.qsc-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);flex-wrap:wrap;}
+.qsc-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;cursor:pointer;}
+.qsc-row .qsc-label{flex:1;font-size:13px;min-width:120px;}
+.qsc-row.checked{background:var(--green-bg);border-color:rgba(30,107,71,.2);}
+.qsc-add{display:flex;gap:8px;margin-top:8px;}
+.qsc-add input{flex:1;}
+.btn{padding:9px 18px;border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{opacity:.88;}
+.btn-outline{background:none;border:1px solid var(--border2);color:var(--text);padding:8px 16px;}
+.btn-outline:hover{background:var(--surface2);}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:1rem;}
+/* 방문 이력 누적 리스트 */
+.visit-acc{margin-top:12px;}
+.visit-acc-title{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+.visit-acc-list{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;padding-right:2px;}
+.visit-row{display:flex;align-items:center;gap:8px;padding:9px 11px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);cursor:pointer;transition:all .15s;}
+.visit-row:hover{border-color:var(--accent);background:var(--green-bg);}
+.visit-row.active{border-color:var(--accent);background:var(--green-bg);box-shadow:0 0 0 2px rgba(30,107,71,.15);}
+.visit-row-info{display:flex;flex-direction:column;min-width:105px;}
+.visit-row-date{font-size:13px;font-weight:700;color:var(--text);}
+.visit-row-savedAt{font-size:10px;color:var(--text3);margin-top:1px;}
+.visit-row-staff{font-size:12px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.visit-row-sales{font-size:12px;font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;color:var(--green);font-weight:700;white-space:nowrap;}
+.visit-row-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+.visit-row-load{font-size:11px;font-weight:700;padding:3px 9px;border-radius:4px;border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer;white-space:nowrap;transition:all .15s;}
+.visit-row-load:hover{background:var(--accent);color:#fff;}
+.visit-row.active .visit-row-load{background:var(--accent);color:#fff;}
+.visit-badge-active{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--accent);color:#fff;white-space:nowrap;}
+.visit-row-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:3px 5px;border-radius:4px;flex-shrink:0;}
+.visit-row-del:hover{background:var(--red-bg);color:var(--red);}
+.visit-empty{text-align:center;padding:16px;font-size:12px;color:var(--text3);border:1px dashed var(--border2);border-radius:var(--rs);}
+.visit-new-btn{margin-top:8px;width:100%;padding:7px;font-size:12px;color:var(--accent);background:none;border:1px dashed var(--border2);border-radius:var(--rs);cursor:pointer;font-weight:600;}
+.visit-new-btn:hover{background:var(--green-bg);}
+/* 되돌리기 버튼 */
+.btn-undo{padding:6px 14px;border-radius:var(--rs);font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--amber);background:var(--surface);color:var(--amber);font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;transition:all .15s;white-space:nowrap;}
+.btn-undo:hover{background:var(--amber);color:#fff;}
+/* 새 매장 등록 */
+.new-store-box{padding:10px 12px;background:var(--surface2);border-radius:var(--rs);margin-top:10px;display:none;}
+.new-store-box .row{display:flex;gap:8px;}
+.new-store-box input{flex:1;}
+/* REPORT */
+.rpt-header{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem;}
+.rpt-title{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px;}
+.rpt-meta{display:flex;gap:8px;flex-wrap:wrap;}
+.pill{font-size:11px;font-weight:500;padding:3px 10px;border-radius:99px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);}
+.pill.green{background:var(--green-bg);color:var(--green);border-color:transparent;}
+.pill.amber{background:var(--amber-bg);color:var(--amber);border-color:transparent;}
+.pill.blue{background:var(--blue-bg);color:var(--blue);border-color:transparent;}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:1rem;}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:.9rem 1rem;}
+.metric-label{font-size:13px;color:var(--text2);margin-bottom:4px;font-weight:500;}
+.metric-value{font-size:18px;font-weight:700;font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;color:var(--text);}
+.metric-value.green{color:var(--green);}
+.metric-value.amber{color:var(--amber);}
+.metric-sub{font-size:12px;color:var(--text3);margin-top:3px;}
+.change-badge{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:4px;margin-top:4px;}
+.change-up{background:var(--green-bg);color:var(--green);}
+.change-down{background:var(--red-bg);color:var(--red);}
+.progress-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1rem;}
+.progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+.progress-bg{background:var(--surface2);border-radius:99px;height:8px;}
+.progress-fill{height:8px;border-radius:99px;background:var(--green);transition:width 1s ease;}
+.progress-bottom{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:5px;}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1rem;}
+.chart-area{position:relative;width:100%;height:240px;}
+@media(max-width:500px){.chart-area{height:180px;}}
+.qsc-report{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:7px;margin-bottom:1rem;}
+.qsc-chip{display:flex;align-items:flex-start;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:.6rem .8rem;font-size:12.5px;}
+.qsc-chip.ok{background:var(--green-bg);border-color:rgba(30,107,71,.15);}
+.qsc-chip.ng{background:var(--red-bg);border-color:rgba(153,27,27,.15);}
+.qsc-chip.warn-c{background:var(--amber-bg);border-color:rgba(133,79,11,.15);}
+.qsc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.qsc-dot.ok{background:var(--green);}
+.qsc-dot.ng{background:var(--red);}
+.qsc-dot.warn{background:var(--amber);}
+.sv-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.2rem;margin-bottom:8px;}
+.sv-card p{font-size:13px;color:var(--text2);line-height:1.75;}
+.sec-label{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+/* 보고서 맑은고딕 폰트 적용 */
+.rpt-wrap{font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;}
+.rpt-wrap .rpt-title{font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.01em;margin-bottom:6px;}
+.rpt-wrap .metric-label,.rpt-wrap .metric-sub,.rpt-wrap .sec-label{font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;}
+.rpt-wrap .qsc-chip{font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;font-size:12.5px;}
+.rpt-wrap .sv-card p{font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;line-height:1.85;font-size:13px;}
+.rpt-wrap .progress-top span{font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;}
+@media print{.sidebar,.mobile-menu,.btn-group,.sidebar-toggle-btn,.page:not(.active){display:none!important;}.main-area{margin-left:0!important;}.page.active{padding:0;}body{background:#fff;}}
+/* 사이드바 토글 버튼 */
+.sidebar-toggle-btn{position:fixed;top:12px;right:12px;z-index:400;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);display:none;align-items:center;gap:5px;transition:all .15s;box-shadow:0 1px 4px rgba(0,0,0,.07);}
+.sidebar-toggle-btn:hover{background:var(--surface2);color:var(--text);}
+.sidebar-toggle-btn.visible{display:flex;}
+.sidebar-hidden .sidebar{transform:translateX(-100%);}
+.sidebar-hidden .main-area{margin-left:0;}
+@media(max-width:768px){.sidebar-toggle-btn{display:none!important;}}
+/* 사진 첨부 */
+.photo-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.1rem 1.25rem;margin-bottom:1rem;}
+.photo-section-title{font-size:13px;font-weight:700;margin-bottom:.75rem;display:flex;align-items:center;gap:6px;color:var(--text);}
+.photo-upload-area{border:2px dashed var(--border2);border-radius:var(--rs);padding:1.1rem;text-align:center;cursor:pointer;transition:all .15s;background:var(--surface2);}
+.photo-upload-area:hover{border-color:var(--accent);background:var(--green-bg);}
+.photo-upload-area input[type=file]{display:none;}
+.photo-upload-label{font-size:12px;color:var(--text2);display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;}
+.photo-upload-label .icon{font-size:24px;}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px;}
+.photo-item{position:relative;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border);aspect-ratio:4/3;background:var(--surface2);}
+.photo-item img{width:100%;height:100%;object-fit:cover;display:block;}
+.photo-item-caption{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55);padding:3px 6px;}
+.photo-item-caption input{background:none;border:none;color:#fff;font-size:10px;width:100%;outline:none;font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;}
+.photo-item-del{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.55);border:none;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
+.photo-item-del:hover{background:var(--red);}
+.photo-count{font-size:11px;color:var(--text3);margin-top:6px;}
+/* DASHBOARD */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:1.25rem;}
+.dash-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;position:relative;overflow:hidden;}
+.dash-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;border-radius:var(--r) 0 0 var(--r);}
+.dash-card.dc-green::before{background:var(--green);}
+.dash-card.dc-amber::before{background:var(--amber);}
+.dash-card.dc-blue::before{background:var(--blue);}
+.dash-card.dc-red::before{background:var(--red);}
+.dash-card.dc-purple::before{background:#7c3aed;}
+.dash-card .dc-label{font-size:12px;color:var(--text2);margin-bottom:4px;font-weight:500;}
+.dash-card .dc-val{font-size:24px;font-weight:700;font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;color:var(--text);}
+.dash-card .dc-sub{font-size:12px;color:var(--text3);margin-top:4px;}
+.dash-section{margin-bottom:1.5rem;}
+.dash-section-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.dash-section-title .sec-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.dash-chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.1rem 1.25rem;}
+.dash-chart-area{position:relative;width:100%;height:280px;}
+@media(max-width:500px){.dash-chart-area{height:200px;}}
+.qsc-mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;}
+.qsc-mini-item{padding:6px 10px;border-radius:var(--rs);font-size:11px;text-align:center;font-weight:500;}
+.qsc-mini-item.ok{background:var(--green-bg);color:var(--green);}
+.qsc-mini-item.warn{background:var(--amber-bg);color:var(--amber);}
+.qsc-mini-item.ng{background:var(--red-bg);color:var(--red);}
+.dash-summary{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;font-size:13px;color:var(--text2);line-height:1.75;}
+/* ② 대시보드 매장 드롭다운 */
+.dash-store-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+.dash-store-bar label{font-size:11px;font-weight:700;color:var(--text3);margin:0;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;flex-shrink:0;}
+.dash-store-bar select{flex:1;min-width:200px;font-size:14px;font-weight:600;padding:9px 14px;border-radius:var(--rs);border:1.5px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;}
+.dash-store-bar select:focus{border-color:var(--accent);outline:none;}
+.dash-store-info{font-size:12px;color:var(--text3);flex-shrink:0;}
+/* 대시보드 빈 상태 안내 */
+.dash-empty{text-align:center;padding:4rem 2rem;color:var(--text3);}
+.dash-empty .dash-empty-icon{font-size:48px;margin-bottom:1rem;}
+.dash-empty h3{font-size:16px;font-weight:700;color:var(--text2);margin-bottom:8px;}
+.dash-empty p{font-size:13px;line-height:1.7;}
+/* 공유 모달 */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;width:90%;max-width:520px;max-height:80vh;overflow-y:auto;}
+.modal-title{font-size:15px;font-weight:700;margin-bottom:1rem;color:var(--text);}
+.modal-url{width:100%;font-size:11px;font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;padding:10px;border:1px solid var(--border2);border-radius:var(--rs);background:var(--surface2);color:var(--text2);word-break:break-all;resize:none;height:90px;}
+.modal-btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+/* 월별비교 */
+.compare-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;position:relative;overflow:hidden;}
+.compare-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;border-radius:var(--r) 0 0 var(--r);}
+.compare-card.cc-purple::before{background:#7c3aed;}
+.compare-card.cc-blue::before{background:var(--blue);}
+.compare-card.cc-green::before{background:var(--green);}
+.compare-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:1.25rem;}
+/* 방문이력 타임라인 */
+.visit-timeline-dash{display:flex;gap:6px;flex-wrap:wrap;}
+.vtag{font-size:11px;padding:3px 10px;border-radius:4px;background:var(--surface2);color:var(--text2);cursor:pointer;transition:all .12s;}
+.vtag:hover{background:var(--green-bg);color:var(--green);}
+.vtag.latest{background:var(--green-bg);color:var(--green);}
+/* ③ 기본정보 페이지 — 2컬럼 레이아웃 */
+.input-page-grid{display:grid;grid-template-columns:1fr 360px;gap:16px;align-items:start;}
+.input-left{min-width:0;}
+.input-right{position:sticky;top:1.5rem;max-height:calc(100vh - 3rem);overflow-y:auto;scrollbar-width:thin;}
+@media(max-width:960px){.input-page-grid{grid-template-columns:1fr 320px;}}
+@media(max-width:768px){.input-page-grid{grid-template-columns:1fr;}.input-right{position:static;max-height:none;}}
+/* 기본정보 우측 미니 차트 카드 */
+.mini-chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;margin-bottom:.75rem;}
+.mini-chart-title{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.05em;}
+.mini-chart-area{position:relative;height:170px;}
+.mini-metric-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
+.mini-metric{background:var(--surface2);border-radius:var(--rs);padding:8px 10px;}
+.mini-metric-label{font-size:10px;color:var(--text3);margin-bottom:2px;}
+.mini-metric-value{font-size:13px;font-weight:700;font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;color:var(--text);}
+.mini-metric-value.green{color:var(--green);}
+.mini-metric-value.amber{color:var(--amber);}
+.mini-metric-value.red{color:var(--red);}
+.mini-progress-bg{background:var(--surface2);border-radius:99px;height:6px;margin-top:6px;}
+.mini-progress-fill{height:6px;border-radius:99px;background:var(--green);transition:width .8s ease;}
+</style>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;margin-right:6px;">S</span>매장점검
+  </div>
+  <button class="sidebar-item active" onclick="openDashboard()"><span class="si-icon" style="color:var(--accent);">&#9632;</span>대시보드</button>
+  <div class="sidebar-section">데이터 입력</div>
+  <button class="sidebar-item" onclick="showPage('input')"><span class="si-icon" style="color:var(--blue);">&#9881;</span>기본정보</button>
+  <button class="sidebar-item" onclick="showPage('sales')"><span class="si-icon" style="color:var(--amber);">&#9733;</span>매출입력</button>
+  <button class="sidebar-item" onclick="showPage('qsc')"><span class="si-icon" style="color:var(--green);">&#10003;</span>QSC점검</button>
+  <button class="sidebar-item" onclick="showPage('sv')"><span class="si-icon" style="color:#7c3aed;">&#9998;</span>SV의견</button>
+  <div class="sidebar-section">보고</div>
+  <button class="sidebar-item" onclick="generateReport()"><span class="si-icon" style="color:var(--red);">&#9776;</span>보고서</button>
+</aside>
+<button class="mobile-menu" id="mobileMenu" onclick="document.getElementById('sidebar').classList.toggle('open')">&#9776;</button>
+<button class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebarCollapse()"><span id="sidebarToggleIcon">&#9776;</span><span id="sidebarToggleLabel">메뉴 숨기기</span></button>
+
+<!-- 공유 모달 -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal-box">
+    <div class="modal-title">📤 매장 데이터 URL 공유</div>
+    <textarea class="modal-url" id="shareUrlText" readonly></textarea>
+    <p style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:8px;">URL을 복사하여 공유하면 받는 사람이 동일한 데이터를 불러올 수 있습니다.</p>
+    <div class="modal-btns">
+      <button class="btn btn-primary" onclick="copyShareUrl()">URL 복사</button>
+      <button class="btn btn-outline" onclick="closeShareModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="main-area" id="mainArea" onclick="document.getElementById('sidebar').classList.remove('open')">
+
+<!-- ═══ PAGE: 기본정보 (full-width + 2컬럼) ═══ -->
+<div class="page full-width" id="page-input">
+
+  <!-- 매장 선택 -->
+  <div class="sec" style="border-left:3px solid var(--accent);border-radius:0 var(--r) var(--r) 0;margin-bottom:1rem;">
+    <div class="sec-title">매장 선택</div>
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+      <div style="flex:1;min-width:180px;">
+        <label>저장된 매장</label>
+        <select id="storeSelect" onchange="onStoreChange(this.value)" style="font-size:14px;padding:10px 12px;font-weight:500;"></select>
+      </div>
+      <button class="btn btn-primary" onclick="saveVisit()" title="현재 입력 내용을 이 매장의 새 방문으로 저장">이 방문 저장</button>
+      <button class="btn btn-outline" onclick="deleteStore()" style="font-size:12px;color:var(--red);border-color:var(--red);">매장 삭제</button>
+    </div>
+    <!-- 되돌리기 바 -->
+    <div id="undoBar" style="display:none;margin-top:10px;padding:8px 12px;background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--rs);align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--amber);font-weight:700;">⚠ 방금 저장되었습니다.</span>
+      <span id="undoDesc" style="font-size:11px;color:var(--text2);flex:1;"></span>
+      <button class="btn-undo" onclick="undoSave()">↩ 이전 데이터로 되돌리기</button>
+    </div>
+    <div class="new-store-box" id="newStoreBox">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">새 매장 등록</div>
+      <div class="row"><input type="text" id="newStoreName" placeholder="매장명 입력 후 등록"><button class="btn btn-primary" onclick="registerStore()" style="white-space:nowrap;padding:9px 14px;">등록</button></div>
+    </div>
+    <div class="visit-acc" id="visitAcc" style="display:none;">
+      <div class="visit-acc-title">
+        <span>📋 방문 이력</span>
+        <span id="visitAccCount" style="font-size:11px;color:var(--text3);"></span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px;">▶ 행을 클릭하거나 <strong style="color:var(--accent);">불러오기</strong> 버튼을 누르면 해당 방문 데이터를 복구합니다.</div>
+      <div class="visit-acc-list" id="visitAccList"></div>
+      <button class="visit-new-btn" onclick="newVisit()">＋ 새 방문 데이터 입력</button>
+    </div>
+    <div id="storeStatusMsg" style="margin-top:8px;font-size:12px;color:var(--text3);"></div>
+  </div>
+
+  <!-- ③ 2컬럼 레이아웃: 왼쪽=입력폼, 오른쪽=실시간 그래프 -->
+  <div class="input-page-grid">
+
+    <!-- 왼쪽: 입력폼 -->
+    <div class="input-left">
+      <!-- 기본 정보 -->
+      <div class="sec">
+        <div class="sec-title">매장 기본 정보</div>
+        <div class="row2">
+          <div class="field"><label>매장명</label><input type="text" id="storeName" placeholder="예) 생활맥주 ○○점" readonly style="color:var(--text2);cursor:default;"></div>
+          <div class="field"><label>점검일</label><input type="date" id="inspDate" oninput="refreshInputChart()"></div>
+        </div>
+        <div class="row3">
+          <div class="field"><label>방문시간</label><input type="time" id="inspTime" value="17:00"></div>
+          <div class="field"><label>운영시작</label><input type="time" id="opStart" value="17:00"></div>
+          <div class="field"><label>운영종료</label><input type="time" id="opEnd" value="02:00"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>금일 근무자</label><input type="text" id="staffName" placeholder="예) 박상진 매니저"></div>
+          <div class="field"><label>근무 형태</label><input type="text" id="staffType" placeholder="예) 매니저 1인 근무 체제"></div>
+        </div>
+      </div>
+
+      <!-- 월별 매출 요약 -->
+      <div class="sec">
+        <div class="sec-title">월별 매출 요약</div>
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;">① 전년 동월</div>
+        <div class="row3">
+          <div class="field"><label>전년 실매출 (원)</label><input type="number" id="revYr" oninput="refreshInputChart()"></div>
+          <div class="field"><label>전년 일평균 (원)</label><input type="number" id="avgYr"></div>
+          <div class="field"><label>전년 (년도)</label><input type="text" id="yrName" placeholder="예) 2025년 4월"></div>
+        </div>
+        <hr class="divider">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;">② 전전월</div>
+        <div class="row3">
+          <div class="field"><label>전전월 실매출 (원)</label><input type="number" id="rev2" oninput="refreshInputChart()"></div>
+          <div class="field"><label>전전월 일평균 (원)</label><input type="number" id="avg2"></div>
+          <div class="field"><label>전전월 (월)</label><input type="text" id="rev2name" placeholder="예) 2월"></div>
+        </div>
+        <hr class="divider">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;">③ 전월</div>
+        <div class="row3">
+          <div class="field"><label>전월 실매출 (원)</label><input type="number" id="rev3" oninput="refreshInputChart()"></div>
+          <div class="field"><label>전월 일평균 (원)</label><input type="number" id="avg3"></div>
+          <div class="field"><label>전월 (월)</label><input type="text" id="rev3name" placeholder="예) 3월"></div>
+        </div>
+        <hr class="divider">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;">④ 당월</div>
+        <div class="row2">
+          <div class="field"><label>당월 매출목표 (원)</label><input type="number" id="revTarget" oninput="refreshInputChart()"></div>
+          <div class="field"><label>당월</label><input type="text" id="revTargetName" value="4월"></div>
+        </div>
+      </div>
+      <div class="btn-group"><button class="btn btn-primary" onclick="showPage('sales')">다음: 매출 입력 →</button></div>
+    </div>
+
+    <!-- 오른쪽: 실시간 그래프 패널 -->
+    <div class="input-right">
+      <!-- 핵심 지표 미니카드 -->
+      <div class="mini-chart-card">
+        <div class="mini-chart-title">📊 매출 현황 미리보기</div>
+        <div class="mini-metric-row" id="miniMetrics">
+          <div class="mini-metric"><div class="mini-metric-label">당월 매출</div><div class="mini-metric-value" id="mm-total">-</div></div>
+          <div class="mini-metric"><div class="mini-metric-label">목표 달성률</div><div class="mini-metric-value" id="mm-ach">-</div></div>
+          <div class="mini-metric"><div class="mini-metric-label">전월 대비</div><div class="mini-metric-value" id="mm-vs3">-</div></div>
+          <div class="mini-metric"><div class="mini-metric-label">전년 대비</div><div class="mini-metric-value" id="mm-vsYr">-</div></div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">목표 달성률</div>
+        <div class="mini-progress-bg"><div class="mini-progress-fill" id="mm-bar" style="width:0%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:3px;">
+          <span>0원</span><span id="mm-target-label">목표 -</span>
+        </div>
+      </div>
+
+      <!-- 월별 매출 추이 차트 -->
+      <div class="mini-chart-card">
+        <div class="mini-chart-title">📈 월별 매출 추이</div>
+        <div class="mini-chart-area"><canvas id="inputTrendChart"></canvas></div>
+      </div>
+
+      <!-- 방문 이력 통계 (매장 선택 시) -->
+      <div class="mini-chart-card" id="visitStatCard" style="display:none;">
+        <div class="mini-chart-title">🗓 방문 이력 추이</div>
+        <div class="mini-chart-area"><canvas id="visitHistChart"></canvas></div>
+      </div>
+    </div>
+
+  </div><!-- /input-page-grid -->
+</div>
+
+<!-- ═══ PAGE: 매출입력 ═══ -->
+<div class="page" id="page-sales">
+  <div class="sec">
+    <div class="sec-title">일별 매출 입력</div>
+    <div style="overflow-x:auto;">
+      <table class="sales-table">
+        <thead><tr><th>날짜</th><th>요일</th><th>매출 (원)</th><th></th></tr></thead>
+        <tbody id="salesBody"></tbody>
+      </table>
+    </div>
+    <button class="add-row-btn" onclick="addSalesRow()">+ 날짜 추가</button>
+  </div>
+  <div class="btn-group">
+    <button class="btn btn-outline" onclick="showPage('input')">← 이전</button>
+    <button class="btn btn-primary" onclick="showPage('qsc')">다음: QSC 점검 →</button>
+  </div>
+</div>
+
+<!-- ═══ PAGE: QSC ═══ -->
+<div class="page" id="page-qsc">
+  <div class="sec">
+    <div class="sec-title">QSC 점검 항목</div>
+    <div class="qsc-list" id="qscList"></div>
+    <div class="qsc-add">
+      <input type="text" id="newQscItem" placeholder="새 점검 항목 추가...">
+      <button class="btn btn-outline" onclick="addQscItem()">추가</button>
+    </div>
+  </div>
+  <div class="btn-group">
+    <button class="btn btn-outline" onclick="showPage('sales')">← 이전</button>
+    <button class="btn btn-primary" onclick="showPage('sv')">다음: SV 의견 →</button>
+  </div>
+</div>
+
+<!-- ═══ PAGE: SV의견 ═══ -->
+<div class="page" id="page-sv">
+  <div class="sec">
+    <div class="sec-title">SV 의견</div>
+    <div class="field">
+      <label>① 상권 분석 및 전략</label>
+      <textarea id="svMarket" rows="5" placeholder="상권 특성, 고객 동선, 경쟁 현황, 매출 전략 등을 기입해 주세요."></textarea>
+    </div>
+    <div class="field">
+      <label>② 종합 의견</label>
+      <textarea id="svOpinion" rows="5" placeholder="인력 현황, 매출 동향, 프로모션, 기타 종합적인 의견을 기입해 주세요."></textarea>
+    </div>
+  </div>
+  <div class="btn-group">
+    <button class="btn btn-outline" onclick="showPage('qsc')">← 이전</button>
+    <button class="btn btn-primary" onclick="generateReport()">보고서 생성</button>
+  </div>
+</div>
+
+<!-- ═══ PAGE: 보고서 ═══ -->
+<div class="page" id="page-report">
+  <div id="reportContent"><div style="text-align:center;padding:3rem;color:var(--text3);font-size:14px;">먼저 데이터를 입력하고 보고서 생성 버튼을 눌러주세요.</div></div>
+  <!-- 사진 첨부 섹션 -->
+  <div id="photoSection" style="display:none;">
+    <div class="photo-section">
+      <div class="photo-section-title">📷 현장 사진 첨부 <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:4px;">(최대 10장, 클릭하여 업로드)</span></div>
+      <div class="photo-upload-area" onclick="document.getElementById('photoFileInput').click()">
+        <label class="photo-upload-label">
+          <span class="icon">📁</span>
+          <span>사진 선택 (여러 장 동시 선택 가능)</span>
+          <span style="font-size:11px;color:var(--text3);">JPG, PNG, GIF 지원</span>
+        </label>
+      </div>
+      <input type="file" id="photoFileInput" accept="image/*" multiple onchange="onPhotoFileChange(event)">
+      <div class="photo-grid" id="photoGrid"></div>
+      <div class="photo-count" id="photoCount"></div>
+    </div>
+  </div>
+  <div class="btn-group" id="reportBtns" style="display:none;">
+    <button class="btn btn-outline" onclick="showPage('input')">← 수정하기</button>
+    <button class="btn btn-primary" onclick="window.print()">인쇄</button>
+    <button class="btn btn-primary" style="background:#991b1b;" onclick="exportPDF()">PDF</button>
+    <button class="btn btn-primary" style="background:#854f0b;" onclick="exportPPT()">PPT</button>
+  </div>
+</div>
+
+<!-- ═══ PAGE: 대시보드 ═══ -->
+<div class="page full-width active" id="page-dashboard">
+  <div id="dashContent"><div style="text-align:center;padding:3rem;color:var(--text3);font-size:14px;">매장을 선택하고 데이터를 입력하면 대시보드가 생성됩니다.</div></div>
+</div>
+
+</div><!-- /main-area -->
+
+<script>
+const DAYS=['일','월','화','수','목','금','토'];
+const DB_KEY='sv_db_v3';
+const ST_KEY='sv_state_v3';
+const UNDO_KEY='sv_undo_v1'; /* 저장 직전 백업용 */
+const defaultQsc=[
+  '유니폼 착용 상태','품절 여부 확인','리프팅도어 청소',
+  '바테이블·야장 테이블 청소','빔 프로젝터 영상 송출','푸어링 상태',
+  '테이블·바닥 청결','린싱트레이·탭포싯 상태','고객의소리·리뷰 스티커',
+  '캔맥주 포장 유도 POP','외부 스피커 볼륨','원산지 표시판','린싱트레이 실리콘 상태'
+];
+
+let salesRows=[], qscItems=[];
+let salesChart=null, dashChart1=null, dashChart2=null;
+let inputTrendChart=null, visitHistChart=null;
+let CUR_STORE='', CUR_VISIT='';
+
+/* ── DB 헬퍼 ── */
+function getDB(){try{return JSON.parse(localStorage.getItem(DB_KEY)||'{}');}catch(e){return {};}}
+function setDB(db){localStorage.setItem(DB_KEY,JSON.stringify(db));}
+function getState(){try{return JSON.parse(localStorage.getItem(ST_KEY)||'{}');}catch(e){return {};}}
+function setState(o){localStorage.setItem(ST_KEY,JSON.stringify(o));}
+
+/* ── 폼 헬퍼 ── */
+const IDS=['inspDate','inspTime','opStart','opEnd','staffName','staffType',
+           'revYr','avgYr','yrName','rev2','avg2','rev2name',
+           'rev3','avg3','rev3name','revTarget','revTargetName',
+           'svMarket','svOpinion'];
+function g(id){const el=document.getElementById(id);return el?el.value:'';}
+function s(id,v){const el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v;}
+
+function gatherSnap(){
+  const snap={salesRows:[...salesRows],qscItems:[...qscItems]};
+  IDS.forEach(id=>snap[id]=g(id));
+  return snap;
+}
+function applySnap(snap){
+  if(!snap)return;
+  IDS.forEach(id=>s(id,snap[id]));
+  salesRows=snap.salesRows?[...snap.salesRows]:[];
+  qscItems=snap.qscItems&&snap.qscItems.length
+    ?[...snap.qscItems]
+    :defaultQsc.map(l=>({label:l,checked:true,status:'ok',note:''}));
+  renderSales(); renderQsc();
+  setTimeout(refreshInputChart, 100);
+}
+function blankSnap(storeName){
+  const snap={salesRows:[],qscItems:defaultQsc.map(l=>({label:l,checked:true,status:'ok',note:''}))};
+  IDS.forEach(id=>snap[id]='');
+  snap.storeName=storeName||'';
+  snap.inspDate=new Date().toISOString().split('T')[0];
+  snap.inspTime=''; snap.opStart='17:00'; snap.opEnd='02:00'; snap.revTargetName='4월';
+  return snap;
+}
+/* 새 방문(빈 폼)으로 전환 — 사진도 초기화 */
+function resetToBlank(storeName){
+  CUR_VISIT='';
+  attachedPhotos=[];
+  /* renderPhotoGrid는 applySnap 후 photoSection이 숨겨진 상태일 수 있으므로 안전하게 호출 */
+  renderPhotoGrid();
+  applySnap(blankSnap(storeName));
+}
+
+/* ════════════════════════════════════
+   매장 등록 / 선택 / 삭제
+════════════════════════════════════ */
+function renderStoreSelect(){
+  const sel=document.getElementById('storeSelect');
+  const db=getDB();
+  sel.innerHTML='<option value="">-- 새 매장 등록 --</option>';
+  Object.values(db).sort((a,b)=>a.name.localeCompare(b.name)).forEach(store=>{
+    const cnt=Object.keys(store.visits||{}).length;
+    const opt=document.createElement('option');
+    opt.value=store.id;
+    opt.textContent=store.name+' ('+cnt+'회)';
+    if(store.id===CUR_STORE)opt.selected=true;
+    sel.appendChild(opt);
+  });
+}
+
+function onStoreChange(id){
+  if(!id){
+    CUR_STORE=''; CUR_VISIT='';
+    document.getElementById('newStoreBox').style.display='block';
+    document.getElementById('visitAcc').style.display='none';
+    document.getElementById('storeStatusMsg').innerHTML='';
+    s('storeName','');
+    resetToBlank('');
+    saveState2();
+  } else {
+    CUR_STORE=id;
+    document.getElementById('newStoreBox').style.display='none';
+    const db=getDB(); const store=db[id];
+    if(!store)return;
+    s('storeName',store.name);
+    const visits=sortedVisits(store);
+    if(visits.length>0){
+      loadVisit(id,visits[0].visitId);
+    } else {
+      resetToBlank(store.name);
+      document.getElementById('storeStatusMsg').innerHTML='<span style="color:var(--text3);">저장된 방문이 없습니다. 입력 후 "이 방문 저장"을 눌러주세요.</span>';
+    }
+    renderVisitAcc(id);
+    saveState2();
+  }
+}
+
+function registerStore(){
+  const name=document.getElementById('newStoreName').value.trim();
+  if(!name){alert('매장명을 입력해 주세요.');return;}
+  const db=getDB();
+  const dup=Object.values(db).find(st=>st.name===name);
+  if(dup){
+    if(confirm('"'+name+'" 매장이 이미 있습니다. 해당 매장을 선택할까요?')){
+      CUR_STORE=dup.id;
+      renderStoreSelect();
+      document.getElementById('storeSelect').value=dup.id;
+      onStoreChange(dup.id);
+    }
+    return;
+  }
+  const id='s_'+Date.now();
+  db[id]={id,name,createdAt:new Date().toISOString(),visits:{},currentVisitId:''};
+  setDB(db);
+  CUR_STORE=id; CUR_VISIT='';
+  s('storeName',name);
+  document.getElementById('newStoreBox').style.display='none';
+  document.getElementById('newStoreName').value='';
+  resetToBlank(name);
+  renderStoreSelect();
+  document.getElementById('storeSelect').value=id;
+  renderVisitAcc(id);
+  document.getElementById('storeStatusMsg').innerHTML='<span style="color:var(--green);">✓ 매장 등록 완료. 데이터 입력 후 "이 방문 저장"을 눌러주세요.</span>';
+  saveState2();
+}
+
+function deleteStore(){
+  if(!CUR_STORE){alert('삭제할 매장을 선택하세요.');return;}
+  const db=getDB(); const name=db[CUR_STORE]?db[CUR_STORE].name:'';
+  const cnt=Object.keys((db[CUR_STORE]&&db[CUR_STORE].visits)||{}).length;
+  if(!confirm('"'+name+'" 매장과 방문 이력 '+cnt+'건을 모두 삭제하시겠습니까?\n되돌릴 수 없습니다.'))return;
+  /* 해당 매장의 모든 방문 사진 삭제 */
+  removeAllPhotosForStore(CUR_STORE);
+  delete db[CUR_STORE]; setDB(db);
+  CUR_STORE='';
+  s('storeName','');
+  resetToBlank('');
+  renderStoreSelect();
+  document.getElementById('visitAcc').style.display='none';
+  document.getElementById('newStoreBox').style.display='block';
+  document.getElementById('storeStatusMsg').innerHTML='';
+  saveState2();
+}
+
+/* ════════════════════════════════════
+   방문 이력 CRUD
+════════════════════════════════════ */
+function sortedVisits(store){
+  return Object.values(store.visits||{}).sort((a,b)=>b.date.localeCompare(a.date));
+}
+
+function renderVisitAcc(storeId){
+  const db=getDB(); const store=db[storeId];
+  if(!store){document.getElementById('visitAcc').style.display='none';return;}
+  const visits=sortedVisits(store);
+  const acc=document.getElementById('visitAcc');
+  const list=document.getElementById('visitAccList');
+  document.getElementById('visitAccCount').textContent='총 '+visits.length+'회';
+  acc.style.display='block';
+  list.innerHTML='';
+
+  if(visits.length===0){
+    list.innerHTML='<div class="visit-empty">저장된 방문 이력이 없습니다.<br>데이터 입력 후 <strong>이 방문 저장</strong>을 눌러주세요.</div>';
+    renderVisitHistChart([]);
+    return;
+  }
+
+  visits.forEach((visit,idx)=>{
+    const dt=new Date(visit.date);
+    const dayStr=isNaN(dt)?'':DAYS[dt.getDay()]+'요일';
+    const total=(visit.snapshot.salesRows||[]).reduce((sm,r)=>sm+Number(r.amount),0);
+    const isActive=visit.visitId===CUR_VISIT;
+
+    /* 저장 시각 포맷 */
+    const sv=new Date(visit.savedAt);
+    const savedStr=isNaN(sv)?'':
+      `${sv.getFullYear()}.${pad(sv.getMonth()+1)}.${pad(sv.getDate())} ${pad(sv.getHours())}:${pad(sv.getMinutes())} 저장`;
+
+    const row=document.createElement('div');
+    row.className='visit-row'+(isActive?' active':'');
+    row.innerHTML=`
+      <div class="visit-row-info">
+        <span class="visit-row-date">${visit.date} <span style="font-size:11px;font-weight:400;color:var(--text3);">(${dayStr})</span></span>
+        <span class="visit-row-savedAt">${savedStr}${idx===0?' · 최신':''}</span>
+      </div>
+      <span class="visit-row-staff">${visit.snapshot.staffName||'-'} / ${visit.snapshot.staffType||'-'}</span>
+      <span class="visit-row-sales">${total>0?total.toLocaleString()+'원':'-'}</span>
+      <div class="visit-row-actions">
+        ${isActive
+          ? '<span class="visit-badge-active">✏ 편집중</span>'
+          : `<button class="visit-row-load" onclick="event.stopPropagation();loadVisit('${storeId}','${visit.visitId}')">불러오기</button>`
+        }
+        <button class="visit-row-del" onclick="deleteVisit('${storeId}','${visit.visitId}',event)" title="삭제">🗑</button>
+      </div>
+    `;
+    row.addEventListener('click',()=>loadVisit(storeId,visit.visitId));
+    list.appendChild(row);
+  });
+  /* 방문 이력 추이 차트 표시 */
+  renderVisitHistChart(visits);
+}
+
+function loadVisit(storeId,visitId){
+  const db=getDB();
+  const store=db[storeId]; if(!store)return;
+  const visit=store.visits&&store.visits[visitId]; if(!visit)return;
+  CUR_STORE=storeId; CUR_VISIT=visitId;
+  store.currentVisitId=visitId;
+  setDB(db); saveState2();
+  applySnap(visit.snapshot);
+  s('storeName',store.name);
+  /* 해당 방문의 사진 로드 */
+  loadPhotos(storeId,visitId);
+  const saved=new Date(visit.savedAt);
+  document.getElementById('storeStatusMsg').innerHTML=
+    `열람 중: <strong>${visit.date}</strong> &nbsp;·&nbsp; 저장: ${saved.getFullYear()}.${pad(saved.getMonth()+1)}.${pad(saved.getDate())} ${pad(saved.getHours())}:${pad(saved.getMinutes())}`;
+  renderVisitAcc(storeId);
+}
+
+function saveVisit(){
+  if(!CUR_STORE){alert('먼저 매장을 선택하거나 등록해 주세요.');return;}
+  const inspDate=g('inspDate');
+  if(!inspDate){alert('점검일을 입력해 주세요.');return;}
+
+  const db=getDB(); const store=db[CUR_STORE];
+  if(!store){alert('매장 정보를 찾을 수 없습니다.');return;}
+
+  /* 저장 전 현재 화면 데이터 캡처 */
+  const snap=gatherSnap();
+  const curStoreName=store.name;
+
+  /* ── UNDO 백업: 저장 직전 상태를 통째로 보관 ── */
+  const undoPayload={
+    storeId: CUR_STORE,
+    visitId: CUR_VISIT,                         /* 기존 visitId (신규면 '') */
+    isNew:   !(CUR_VISIT && store.visits && store.visits[CUR_VISIT]), /* 신규 여부 */
+    prevSnap: CUR_VISIT && store.visits && store.visits[CUR_VISIT]
+              ? JSON.parse(JSON.stringify(store.visits[CUR_VISIT]))  /* 기존 방문 원본 */
+              : null,
+    savedAt: new Date().toISOString(),
+    label: inspDate
+  };
+  localStorage.setItem(UNDO_KEY, JSON.stringify(undoPayload));
+
+  /* 같은 날짜 중복 체크 (현재 편집 중인 visitId는 제외) */
+  const dupVisit=Object.values(store.visits||{}).find(v=>v.date===inspDate&&v.visitId!==CUR_VISIT);
+  if(dupVisit){
+    if(!confirm(inspDate+' 날짜의 방문 데이터가 이미 있습니다.\n덮어쓰시겠습니까?'))return;
+    /* 덮어쓰기 대상도 UNDO에 포함 */
+    undoPayload.dupVisit=JSON.parse(JSON.stringify(store.visits[dupVisit.visitId]));
+    localStorage.setItem(UNDO_KEY, JSON.stringify(undoPayload));
+    delete store.visits[dupVisit.visitId];
+  }
+
+  /* 신규 또는 기존 visitId 결정 */
+  const visitId=(CUR_VISIT&&store.visits&&store.visits[CUR_VISIT])
+    ?CUR_VISIT:'v_'+Date.now();
+
+  if(!store.visits)store.visits={};
+
+  /* DB에 스냅샷 저장 */
+  store.visits[visitId]={visitId,date:inspDate,savedAt:new Date().toISOString(),snapshot:snap};
+  store.currentVisitId=visitId;
+  CUR_VISIT=visitId;
+  setDB(db); saveState2();
+  savePhotos();/* 사진도 함께 저장 */
+
+  /* storeSelect 재렌더: onchange 이벤트 임시 차단 */
+  const sel=document.getElementById('storeSelect');
+  const oldHandler=sel.getAttribute('onchange');
+  sel.removeAttribute('onchange');
+  renderStoreSelect();
+  sel.value=CUR_STORE;
+  if(oldHandler)sel.setAttribute('onchange',oldHandler);
+
+  /* 방문 이력 목록만 DOM 업데이트 */
+  _renderVisitListOnly(CUR_STORE);
+
+  /* 화면 필드 값 직접 복원 */
+  IDS.forEach(id=>{ const el=document.getElementById(id); if(el&&snap[id]!=null)el.value=snap[id]; });
+  s('storeName',curStoreName);
+
+  const now=new Date();
+  document.getElementById('storeStatusMsg').innerHTML=
+    `✓ 저장 완료: <strong>${inspDate}</strong> &nbsp;·&nbsp; ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  /* ── 되돌리기 바 표시 ── */
+  const bar=document.getElementById('undoBar');
+  bar.style.display='flex';
+  document.getElementById('undoDesc').textContent=
+    (undoPayload.isNew ? '신규 저장' : '기존 방문 수정') + ' — 실수로 저장했다면 되돌리기를 눌러주세요.';
+
+  /* 3분 후 되돌리기 바 자동 숨김 */
+  clearTimeout(window._undoTimer);
+  window._undoTimer=setTimeout(()=>{bar.style.display='none';},3*60*1000);
+}
+
+/* ── 되돌리기 함수 ── */
+function undoSave(){
+  const raw=localStorage.getItem(UNDO_KEY);
+  if(!raw){alert('되돌릴 수 있는 저장 이력이 없습니다.');return;}
+  const undo=JSON.parse(raw);
+
+  if(!confirm('방금 저장을 되돌리겠습니까?\n저장된 데이터가 이전 상태로 복구됩니다.')){return;}
+
+  const db=getDB();
+  const store=db[undo.storeId];
+  if(!store){alert('매장 정보를 찾을 수 없습니다.');return;}
+
+  if(undo.isNew){
+    /* 신규 저장이었으면 → 방금 만든 visitId 삭제 */
+    const curVisitId=store.currentVisitId;
+    if(curVisitId && store.visits[curVisitId]) delete store.visits[curVisitId];
+    /* 덮어쓴 게 있었으면 복구 */
+    if(undo.dupVisit) store.visits[undo.dupVisit.visitId]=undo.dupVisit;
+    /* 이전 currentVisitId 복원 */
+    store.currentVisitId=undo.visitId||'';
+    CUR_VISIT=undo.visitId||'';
+  } else {
+    /* 기존 방문 수정이었으면 → 원래 스냅샷으로 덮어쓰기 */
+    if(undo.prevSnap) store.visits[undo.prevSnap.visitId]=undo.prevSnap;
+    /* 덮어쓴 게 있었으면 복구 */
+    if(undo.dupVisit) store.visits[undo.dupVisit.visitId]=undo.dupVisit;
+    store.currentVisitId=undo.visitId;
+    CUR_VISIT=undo.visitId;
+  }
+
+  setDB(db); saveState2();
+  localStorage.removeItem(UNDO_KEY);
+
+  /* 되돌리기 바 숨기기 */
+  document.getElementById('undoBar').style.display='none';
+  clearTimeout(window._undoTimer);
+
+  /* 화면 복원: 이전 visitId가 있으면 불러오기, 없으면 빈 폼 */
+  if(CUR_VISIT && store.visits && store.visits[CUR_VISIT]){
+    loadVisit(undo.storeId, CUR_VISIT);
+  } else {
+    resetToBlank(store.name);
+    s('storeName',store.name);
+    renderVisitAcc(undo.storeId);
+  }
+
+  /* storeSelect 재렌더 */
+  const sel=document.getElementById('storeSelect');
+  const oh=sel.getAttribute('onchange');
+  sel.removeAttribute('onchange');
+  renderStoreSelect();
+  sel.value=CUR_STORE;
+  if(oh)sel.setAttribute('onchange',oh);
+
+  document.getElementById('storeStatusMsg').innerHTML=
+    '<span style="color:var(--amber);font-weight:700;">↩ 되돌리기 완료 — 이전 데이터로 복구되었습니다.</span>';
+}
+
+/* 보조 함수: 방문 이력 목록만 갱신 (applySnap/loadVisit 절대 호출 없음) */
+function _renderVisitListOnly(storeId){
+  const db=getDB(); const store=db[storeId];
+  if(!store){document.getElementById('visitAcc').style.display='none';return;}
+  const visits=sortedVisits(store);
+  const acc=document.getElementById('visitAcc');
+  const list=document.getElementById('visitAccList');
+  document.getElementById('visitAccCount').textContent='총 '+visits.length+'회';
+  acc.style.display='block';
+  list.innerHTML='';
+
+  if(visits.length===0){
+    list.innerHTML='<div class="visit-empty">저장된 방문 이력이 없습니다.<br>데이터 입력 후 <strong>이 방문 저장</strong>을 눌러주세요.</div>';
+    return;
+  }
+
+  visits.forEach((visit,idx)=>{
+    const dt=new Date(visit.date);
+    const dayStr=isNaN(dt)?'':DAYS[dt.getDay()]+'요일';
+    const total=(visit.snapshot.salesRows||[]).reduce((sm,r)=>sm+Number(r.amount),0);
+    const isActive=visit.visitId===CUR_VISIT;
+    const sv=new Date(visit.savedAt);
+    const savedStr=isNaN(sv)?'':
+      `${sv.getFullYear()}.${pad(sv.getMonth()+1)}.${pad(sv.getDate())} ${pad(sv.getHours())}:${pad(sv.getMinutes())} 저장`;
+    const row=document.createElement('div');
+    row.className='visit-row'+(isActive?' active':'');
+    row.innerHTML=`
+      <div class="visit-row-info">
+        <span class="visit-row-date">${visit.date} <span style="font-size:11px;font-weight:400;color:var(--text3);">(${dayStr})</span></span>
+        <span class="visit-row-savedAt">${savedStr}${idx===0?' · 최신':''}</span>
+      </div>
+      <span class="visit-row-staff">${visit.snapshot.staffName||'-'} / ${visit.snapshot.staffType||'-'}</span>
+      <span class="visit-row-sales">${total>0?total.toLocaleString()+'원':'-'}</span>
+      <div class="visit-row-actions">
+        ${isActive
+          ? '<span class="visit-badge-active">✏ 편집중</span>'
+          : `<button class="visit-row-load" onclick="event.stopPropagation();loadVisit('${storeId}','${visit.visitId}')">불러오기</button>`
+        }
+        <button class="visit-row-del" onclick="deleteVisit('${storeId}','${visit.visitId}',event)" title="삭제">🗑</button>
+      </div>
+    `;
+    row.addEventListener('click',()=>loadVisit(storeId,visit.visitId));
+    list.appendChild(row);
+  });
+  renderVisitHistChart(visits);
+}
+
+function newVisit(){
+  if(!CUR_STORE){alert('매장을 먼저 선택하세요.');return;}
+  const db=getDB(); const store=db[CUR_STORE];
+  resetToBlank(store.name);
+  document.getElementById('storeStatusMsg').innerHTML='<span style="color:var(--accent);">새 방문 입력 중 — 완료 후 "이 방문 저장"을 눌러주세요.</span>';
+  renderVisitAcc(CUR_STORE);
+  s('inspDate',new Date().toISOString().split('T')[0]);
+  initSalesRows();
+}
+
+function deleteVisit(storeId,visitId,e){
+  e.stopPropagation();
+  const db=getDB();
+  const store=db[storeId]; if(!store||!store.visits||!store.visits[visitId])return;
+  const d=store.visits[visitId].date;
+  if(!confirm(d+' 방문 데이터를 삭제하시겠습니까?'))return;
+  /* 해당 방문의 사진 삭제 */
+  removePhotos(storeId,visitId);
+  delete store.visits[visitId];
+  if(CUR_VISIT===visitId){
+    resetToBlank(store.name);
+  }
+  setDB(db); saveState2();
+  renderStoreSelect();
+  renderVisitAcc(storeId);
+}
+
+/* ════════════════════════════════════
+   자동저장 & 상태 복원
+════════════════════════════════════ */
+function saveState2(){setState({storeId:CUR_STORE,visitId:CUR_VISIT});}
+
+function autoSave(){
+  if(!CUR_STORE||!CUR_VISIT)return;
+  const db=getDB();
+  if(!db[CUR_STORE]||!db[CUR_STORE].visits||!db[CUR_STORE].visits[CUR_VISIT])return;
+  db[CUR_STORE].visits[CUR_VISIT].snapshot=gatherSnap();
+  db[CUR_STORE].visits[CUR_VISIT].savedAt=new Date().toISOString();
+  setDB(db);
+  savePhotos();/* 사진도 함께 자동저장 */
+}
+setInterval(autoSave,60000);
+window.addEventListener('beforeunload',autoSave);
+
+function pad(n){return String(n).padStart(2,'0');}
+
+/* ════════════════════════════════════
+   초기화
+════════════════════════════════════ */
+window.onload=()=>{
+  if(!checkShareHash()){
+    const st=getState(); const db=getDB();
+    if(st.storeId&&db[st.storeId]){
+      CUR_STORE=st.storeId;
+      document.getElementById('newStoreBox').style.display='none';
+      s('storeName',db[st.storeId].name);
+      if(st.visitId&&db[st.storeId].visits&&db[st.storeId].visits[st.visitId]){
+        loadVisit(st.storeId,st.visitId);
+      } else {
+        const visits=sortedVisits(db[st.storeId]);
+        if(visits.length>0)loadVisit(st.storeId,visits[0].visitId);
+        else{resetToBlank(db[st.storeId].name);}
+      }
+      renderVisitAcc(CUR_STORE);
+    } else {
+      document.getElementById('newStoreBox').style.display='block';
+      resetToBlank('');
+      initSalesRows();
+    }
+  }
+  renderStoreSelect();
+  showIOSBanner();
+  setTimeout(()=>{buildDashboard();refreshInputChart();},200);
+};
+
+/* ════════════════════════════════════
+   페이지 전환
+════════════════════════════════════ */
+/* 사이드바 숨기기/보이기 토글 */
+function toggleSidebarCollapse(){
+  const body=document.body;
+  const isHidden=body.classList.contains('sidebar-hidden');
+  if(isHidden){
+    body.classList.remove('sidebar-hidden');
+    document.getElementById('sidebarToggleIcon').textContent='☰';
+    document.getElementById('sidebarToggleLabel').textContent='메뉴 숨기기';
+  } else {
+    body.classList.add('sidebar-hidden');
+    document.getElementById('sidebarToggleIcon').textContent='☰';
+    document.getElementById('sidebarToggleLabel').textContent='메뉴 보이기';
+  }
+}
+
+function showPage(name){
+  autoSave();
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  const map={dashboard:0,input:1,sales:2,qsc:3,sv:4,report:5};
+  if(map[name]!==undefined)document.querySelectorAll('.sidebar-item')[map[name]].classList.add('active');
+  document.getElementById('sidebar').classList.remove('open');
+  window.scrollTo(0,0);
+  if(name==='input')setTimeout(refreshInputChart,150);
+
+  /* 보고서 페이지: 사이드바 토글 버튼 표시 */
+  const toggleBtn=document.getElementById('sidebarToggleBtn');
+  if(name==='report'||name==='dashboard'){
+    toggleBtn.classList.add('visible');
+  } else {
+    toggleBtn.classList.remove('visible');
+    /* 다른 페이지로 이동하면 사이드바 복원 */
+    document.body.classList.remove('sidebar-hidden');
+    document.getElementById('sidebarToggleIcon').textContent='☰';
+    document.getElementById('sidebarToggleLabel').textContent='메뉴 숨기기';
+  }
+}
+function openDashboard(){autoSave();buildDashboard();showPage('dashboard');}
+
+/* ════════════════════════════════════
+   매출 / QSC 렌더
+════════════════════════════════════ */
+function renderSales(){
+  const tbody=document.getElementById('salesBody');tbody.innerHTML='';
+  salesRows.forEach((row,i)=>{
+    const d=new Date(row.date);const day=isNaN(d)?'':DAYS[d.getDay()];
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input type="date" value="${row.date}" onchange="salesRows[${i}].date=this.value;renderSales();" style="width:140px;"></td>
+      <td style="font-size:13px;color:var(--text2);padding:5px 8px;">${day}</td>
+      <td><input type="number" value="${row.amount||''}" onchange="salesRows[${i}].amount=Number(this.value)" placeholder="매출 입력"></td>
+      <td><button onclick="salesRows.splice(${i},1);renderSales();" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;">×</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function addSalesRow(){
+  const last=salesRows.length?salesRows[salesRows.length-1].date:g('inspDate')||new Date().toISOString().split('T')[0];
+  const next=new Date(last);next.setDate(next.getDate()+1);
+  salesRows.push({date:next.toISOString().split('T')[0],amount:0});renderSales();
+}
+function initSalesRows(){
+  const inspDate=g('inspDate')||new Date().toISOString().split('T')[0];
+  const d=new Date(inspDate);const year=d.getFullYear(),month=d.getMonth();
+  const lastDay=new Date(year,month+1,0).getDate();
+  salesRows=[];
+  for(let i=1;i<=lastDay;i++)
+    salesRows.push({date:`${year}-${pad(month+1)}-${pad(i)}`,amount:0});
+  renderSales();
+}
+function renderQsc(){
+  const list=document.getElementById('qscList');list.innerHTML='';
+  qscItems.forEach((item,i)=>{
+    const row=document.createElement('div');row.className='qsc-row'+(item.checked?' checked':'');
+    row.innerHTML=`<input type="checkbox" ${item.checked?'checked':''} onchange="qscItems[${i}].checked=this.checked;renderQsc();">
+      <span class="qsc-label">${item.label}</span>
+      <select style="width:80px;border:1px solid var(--border2);padding:3px 5px;font-size:12px;border-radius:var(--rs);background:var(--surface2);color:var(--text);" onchange="qscItems[${i}].status=this.value">
+        <option value="ok" ${item.status==='ok'?'selected':''}>양호</option>
+        <option value="warn" ${item.status==='warn'?'selected':''}>주의</option>
+        <option value="ng" ${item.status==='ng'?'selected':''}>불량</option>
+      </select>
+      <input type="text" placeholder="메모" value="${item.note||''}" onchange="qscItems[${i}].note=this.value" style="flex:1;min-width:100px;font-size:12px;padding:5px 7px;border:1px solid var(--border2);border-radius:var(--rs);background:var(--surface2);color:var(--text);">
+      <button onclick="qscItems.splice(${i},1);renderQsc();" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;">×</button>`;
+    list.appendChild(row);
+  });
+}
+function addQscItem(){
+  const inp=document.getElementById('newQscItem');if(!inp.value.trim())return;
+  qscItems.push({label:inp.value.trim(),checked:true,status:'ok',note:''});inp.value='';renderQsc();
+}
+
+/* ════════════════════════════════════
+   ③ 기본정보 우측 실시간 차트 갱신
+════════════════════════════════════ */
+function refreshInputChart(){
+  const revYr=Number(g('revYr'))||0;
+  const rev2=Number(g('rev2'))||0;
+  const rev3=Number(g('rev3'))||0;
+  const revTarget=Number(g('revTarget'))||0;
+  const yrName=g('yrName')||'전년';
+  const rev2name=g('rev2name')||'전전월';
+  const rev3name=g('rev3name')||'전월';
+  const revTargetName=g('revTargetName')||'당월';
+  const totalSales=salesRows.reduce((sm,r)=>sm+Number(r.amount),0);
+  const achRate=revTarget>0?Math.min((totalSales/revTarget*100),100):0;
+  const isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+
+  /* 미니 지표 업데이트 */
+  const fmtM=n=>n>=10000?(n/10000).toFixed(1)+'만':n.toLocaleString();
+  const mmTotal=document.getElementById('mm-total');
+  const mmAch=document.getElementById('mm-ach');
+  const mmVs3=document.getElementById('mm-vs3');
+  const mmVsYr=document.getElementById('mm-vsYr');
+  const mmBar=document.getElementById('mm-bar');
+  const mmTargetLabel=document.getElementById('mm-target-label');
+
+  if(mmTotal)mmTotal.textContent=totalSales>0?fmtM(totalSales)+'원':'-';
+  if(mmAch){
+    mmAch.textContent=revTarget>0?achRate.toFixed(1)+'%':'-';
+    mmAch.className='mini-metric-value'+(achRate>=100?' green':achRate>=80?' amber':' red');
+  }
+  if(mmVs3){
+    if(rev3&&totalSales){
+      const p=((totalSales/rev3-1)*100).toFixed(1);
+      mmVs3.textContent=(p>=0?'+':'')+p+'%';
+      mmVs3.className='mini-metric-value'+(p>=0?' green':' red');
+    } else mmVs3.textContent='-';
+  }
+  if(mmVsYr){
+    if(revYr&&totalSales){
+      const p=((totalSales/revYr-1)*100).toFixed(1);
+      mmVsYr.textContent=(p>=0?'+':'')+p+'%';
+      mmVsYr.className='mini-metric-value'+(p>=0?' green':' red');
+    } else mmVsYr.textContent='-';
+  }
+  if(mmBar)mmBar.style.width=achRate+'%';
+  if(mmTargetLabel)mmTargetLabel.textContent='목표 '+(revTarget>0?fmtM(revTarget)+'원':'-');
+
+  /* 월별 추이 차트 */
+  const ctx=document.getElementById('inputTrendChart');
+  if(!ctx)return;
+  const labels=[];const values=[];
+  if(revYr){labels.push(yrName||'전년');values.push(revYr);}
+  if(rev2){labels.push(rev2name||'전전월');values.push(rev2);}
+  if(rev3){labels.push(rev3name||'전월');values.push(rev3);}
+  if(totalSales>0){labels.push(revTargetName||'당월');values.push(totalSales);}
+  else if(revTarget){labels.push((revTargetName||'당월')+' 목표');values.push(revTarget);}
+
+  const tc=isDark?'rgba(255,255,255,.4)':'rgba(0,0,0,.38)';
+  const gc=isDark?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)';
+  const lc=isDark?'rgba(255,255,255,.6)':'rgba(0,0,0,.5)';
+  const colors=labels.map((_,i)=>i===labels.length-1?'#378ADD':'#B5D4F4');
+
+  if(inputTrendChart)inputTrendChart.destroy();
+  inputTrendChart=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{label:'매출',data:values,backgroundColor:colors,borderRadius:5,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'매출: '+c.raw.toLocaleString()+'원'}}},
+      scales:{x:{ticks:{color:tc,font:{size:10}},grid:{display:false}},
+              y:{ticks:{color:tc,font:{size:9},callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:gc}}}},
+    plugins:[{id:'datalabel',afterDatasetsDraw(chart){
+      const meta=chart.getDatasetMeta(0);const c=chart.ctx;
+      c.save();c.font='600 10px '맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif';c.fillStyle=lc;c.textAlign='center';
+      meta.data.forEach((bar,i)=>{
+        const v=values[i];if(!v)return;
+        c.fillText(v>=10000000?(v/10000000).toFixed(1)+'천만':v>=10000?(v/10000).toFixed(0)+'만':(v/1000).toFixed(0)+'천',bar.x,bar.y-6);
+      });
+      c.restore();
+    }}]
+  });
+}
+
+/* 방문 이력 추이 차트 (기본정보 우측) */
+function renderVisitHistChart(visits){
+  const card=document.getElementById('visitStatCard');
+  const ctx=document.getElementById('visitHistChart');
+  if(!card||!ctx||visits.length<2){if(card)card.style.display='none';return;}
+  card.style.display='block';
+  const sorted=[...visits].sort((a,b)=>a.date.localeCompare(b.date)).slice(-10);
+  const labels=sorted.map(v=>{const d=new Date(v.date);return`${d.getMonth()+1}/${d.getDate()}`;});
+  const values=sorted.map(v=>(v.snapshot.salesRows||[]).reduce((sm,r)=>sm+Number(r.amount),0));
+  const isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const tc=isDark?'rgba(255,255,255,.4)':'rgba(0,0,0,.38)';
+  const gc=isDark?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)';
+  if(visitHistChart)visitHistChart.destroy();
+  visitHistChart=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[{label:'당월매출',data:values,borderColor:'#378ADD',backgroundColor:'rgba(55,138,221,.12)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#378ADD',fill:true,tension:0.35}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:10}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'매출: '+c.raw.toLocaleString()+'원'}}},
+      scales:{x:{ticks:{color:tc,font:{size:9}},grid:{display:false}},
+              y:{ticks:{color:tc,font:{size:9},callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:gc}}}}
+  });
+}
+
+/* ════════════════════════════════════
+   보고서 생성
+════════════════════════════════════ */
+/* ── 보고서 공통 데이터 수집 헬퍼 ── */
+function _rptData(){
+  const storeName=g('storeName')||'매장명 미입력';
+  const inspDate=g('inspDate')||'';
+  const inspTime=g('inspTime')||'';
+  const opStart=g('opStart')||'17:00'; const opEnd=g('opEnd')||'02:00';
+  const staffName=g('staffName')||'-'; const staffType=g('staffType')||'-';
+  const revYr=Number(g('revYr'))||0; const avgYr=Number(g('avgYr'))||0; const yrName=g('yrName')||'전년';
+  const rev2=Number(g('rev2'))||0; const avg2=Number(g('avg2'))||0; const rev2name=g('rev2name')||'전전월';
+  const rev3=Number(g('rev3'))||0; const avg3=Number(g('avg3'))||0; const rev3name=g('rev3name')||'전월';
+  const revTarget=Number(g('revTarget'))||0; const revTargetName=g('revTargetName')||'당월';
+  const totalSales=salesRows.reduce((sm,r)=>sm+Number(r.amount),0);
+  const achRate=revTarget>0?Math.min(Number((totalSales/revTarget*100).toFixed(1)),100):0;
+  const svMarket=g('svMarket')||''; const svOpinion=g('svOpinion')||'';
+  const dObj=new Date(inspDate);
+  const dateStr=inspDate?`${dObj.getFullYear()}.${pad(dObj.getMonth()+1)}.${pad(dObj.getDate())} (${DAYS[dObj.getDay()]})`:'-';
+  const qscOk=qscItems.filter(i=>i.status==='ok').length;
+  const qscTotal=qscItems.length;
+  const sorted=[...salesRows].filter(r=>r.amount>0).sort((a,b)=>a.date.localeCompare(b.date));
+  /* 요일별 집계 */
+  const dayTotals=Array(7).fill(0); const dayCounts=Array(7).fill(0);
+  sorted.forEach(r=>{const d=new Date(r.date);const dy=d.getDay();dayTotals[dy]+=Number(r.amount);dayCounts[dy]++;});
+  const dayAvgs=dayTotals.map((t,i)=>dayCounts[i]?Math.round(t/dayCounts[i]):0);
+  const achStr=(cur,base)=>{if(!base||!cur)return'-';const d=(cur/base*100-100).toFixed(1);return(d>=0?'+':'')+d+'%';};
+  const fmt=n=>n?n.toLocaleString()+'원':'-';
+  return {storeName,inspDate,inspTime,opStart,opEnd,staffName,staffType,
+    revYr,avgYr,yrName,rev2,avg2,rev2name,rev3,avg3,rev3name,
+    revTarget,revTargetName,totalSales,achRate,svMarket,svOpinion,
+    dateStr,qscOk,qscTotal,sorted,dayTotals,dayCounts,dayAvgs,achStr,fmt};
+}
+
+function generateReport(){
+  const d=_rptData();
+  const {storeName,inspDate,inspTime,opStart,opEnd,staffName,staffType,
+    revYr,avgYr,yrName,rev2,avg2,rev2name,rev3,avg3,rev3name,
+    revTarget,revTargetName,totalSales,achRate,svMarket,svOpinion,
+    dateStr,qscOk,qscTotal,sorted,dayAvgs,achStr,fmt}=d;
+
+  const visitTimeStr=inspTime?` · 방문 ${inspTime}`:'';
+
+  function achBadge(cur,base,label){
+    if(!base||!cur)return '';
+    const pct=(cur/base*100-100).toFixed(1);const sign=pct>=0?'+':'';
+    const color=pct>=0?'#1e40af':'#991b1b';/* + 파랑 / - 빨강 */
+    const lbl=label?label+' ':'';
+    return `<span class="change-badge" style="background:none;border:none;padding:2px 0;font-size:11px;font-weight:700;color:${color};">${lbl}${sign}${pct}%</span>`;
+  }
+
+  let html=`
+  <div class="rpt-wrap">
+  <div class="rpt-header">
+    <div class="rpt-title">${storeName} · 점검 보고서</div>
+    <div class="rpt-meta">
+      <span class="pill">${dateStr}${visitTimeStr}</span>
+      <span class="pill">영업 ${opStart} – ${opEnd}</span>
+      <span class="pill blue">${staffName} / ${staffType}</span>
+
+    </div>
+  </div>
+
+  <div class="sec-label">월별 매출 현황</div>
+  <div class="progress-card">
+    <div class="progress-top"><span style="font-size:15px;font-weight:500;">${revTargetName} 목표 달성률</span><span style="font-size:20px;font-weight:700;font-family:'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif;color:var(--green);">${achRate}%</span></div>
+    <div class="progress-bg"><div class="progress-fill" id="rpbar" style="width:0%"></div></div>
+    <div class="progress-bottom"><span>0원</span><span>목표 ${revTarget.toLocaleString()}원</span></div>
+  </div>
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">${yrName}</div><div class="metric-value">${revYr?revYr.toLocaleString()+'원':'-'}</div><div class="metric-sub">일평균 ${avgYr?avgYr.toLocaleString()+'원':'-'}</div>${achBadge(totalSales,revYr,yrName+' 대비')}</div>
+    <div class="metric"><div class="metric-label">${rev2name}</div><div class="metric-value">${rev2?rev2.toLocaleString()+'원':'-'}</div><div class="metric-sub">일평균 ${avg2?avg2.toLocaleString()+'원':'-'}</div>${achBadge(totalSales,rev2,rev2name+' 대비')}</div>
+    <div class="metric"><div class="metric-label">${rev3name}</div><div class="metric-value">${rev3?rev3.toLocaleString()+'원':'-'}</div><div class="metric-sub">일평균 ${avg3?avg3.toLocaleString()+'원':'-'}</div>${achBadge(totalSales,rev3,rev3name+' 대비')}</div>
+    <div class="metric"><div class="metric-label">${revTargetName} 당월매출 / 목표</div><div class="metric-value">${totalSales.toLocaleString()}원</div><div class="metric-sub">목표 ${revTarget?revTarget.toLocaleString()+'원':'-'}</div><span style="font-size:11px;font-weight:700;color:${achRate>=100?'#1e40af':'#991b1b'};">달성률 ${achRate}%</span></div>
+  </div>`;
+
+  /* 일별 매출 차트 */
+  if(sorted.length>0){
+    html+=`<div class="sec-label">일별 매출 추이</div>
+    <div class="chart-card"><div class="chart-area" style="height:260px;"><canvas id="repChart"></canvas></div></div>`;
+  }
+
+  /* 요일별 평균 차트 */
+  const hasDay=dayAvgs.some(v=>v>0);
+  if(hasDay){
+    html+=`<div class="sec-label">요일별 평균 매출</div>
+    <div class="chart-card"><div class="chart-area" style="height:200px;"><canvas id="repDayChart"></canvas></div></div>`;
+    /* 요일별 테이블도 추가 */
+    html+=`<div class="chart-card" style="margin-top:0;border-top:none;border-radius:0 0 var(--r) var(--r);">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr>${['일','월','화','수','목','금','토'].map(day=>`<th style="padding:6px 4px;text-align:center;border-bottom:1px solid var(--border);color:var(--text2);font-weight:600;">${day}</th>`).join('')}</tr></thead>
+    <tbody><tr>${dayAvgs.map((v,i)=>`<td style="padding:6px 4px;text-align:center;font-weight:${v>0?'700':'400'};color:${v>0?(i===0?'#991b1b':(i===6?'#1e40af':'var(--text)')):'var(--text3)'};">${v>0?(v/10000).toFixed(1)+'만':'—'}</td>`).join('')}</tr></tbody>
+    </table></div>`;
+  }
+
+  /* QSC */
+  html+=`<div class="sec-label">QSC 점검 결과</div><div class="qsc-report">`;
+  qscItems.forEach(item=>{
+    const cc=item.status==='ng'?'ng':(item.status==='warn'?'warn-c':'ok');
+    const dc=item.status==='ng'?'ng':(item.status==='warn'?'warn':'ok');
+    html+=`<div class="qsc-chip ${cc}"><div class="qsc-dot ${dc}"></div><span>${item.label}${item.note?' — <span style="color:var(--text3);font-size:11px;">'+item.note+'</span>':''}</span><span style="margin-left:auto;font-size:11px;color:var(--text3);padding-left:4px;">${{ok:'양호',warn:'주의',ng:'불량'}[item.status]}</span></div>`;
+  });
+  html+=`</div>`;
+
+  /* SV 의견 */
+  if(svMarket)html+=`<div class="sec-label">상권 분석 및 전략</div><div class="sv-card"><p>${svMarket.replace(/\n/g,'<br>')}</p></div>`;
+  if(svOpinion)html+=`<div class="sec-label">종합 의견</div><div class="sv-card"><p>${svOpinion.replace(/\n/g,'<br>')}</p></div>`;
+
+  /* 첨부 사진 (보고서 내) */
+  if(attachedPhotos.length>0){
+    html+=`<div class="sec-label">현장 첨부 사진 (${attachedPhotos.length}장)</div>`;
+    html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:1rem;">`;
+    attachedPhotos.forEach((photo,i)=>{
+      html+=`<div style="border-radius:var(--rs);overflow:hidden;border:1px solid var(--border);aspect-ratio:4/3;position:relative;background:var(--surface2);">
+        <img src="${photo.dataUrl}" alt="현장사진 ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block;">
+        ${photo.caption?`<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55);padding:3px 6px;font-size:10px;color:#fff;font-family:'맑은 고딕','Noto Sans KR',sans-serif;">${photo.caption}</div>`:''}
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  html+=`<div style="margin-top:1rem;"><button class="btn btn-outline" onclick="openShareModal()" style="width:100%;border-color:var(--accent);color:var(--accent);font-weight:700;">📤 URL 공유</button></div>`;
+  html+=`</div>`;/* /rpt-wrap */
+
+  document.getElementById('reportContent').innerHTML=html;
+  document.getElementById('reportBtns').style.display='flex';
+  /* 사진 첨부 섹션 표시 */
+  document.getElementById('photoSection').style.display='block';
+  renderPhotoGrid();
+  showPage('report');
+  setTimeout(()=>{const pb=document.getElementById('rpbar');if(pb)pb.style.width=achRate+'%';},300);
+
+  /* 차트 렌더 */
+  setTimeout(()=>{
+    const isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const tc=isDark?'rgba(255,255,255,.4)':'rgba(0,0,0,.38)';
+    const gc=isDark?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)';
+    const lc=isDark?'rgba(255,255,255,.55)':'rgba(0,0,0,.5)';
+
+    /* 일별 막대 */
+    const ctx1=document.getElementById('repChart');
+    if(ctx1&&sorted.length>0){
+      if(salesChart)salesChart.destroy();
+      const labels=sorted.map(r=>{const dv=new Date(r.date);return`${dv.getMonth()+1}/${dv.getDate()}(${DAYS[dv.getDay()]})`;});
+      const values=sorted.map(r=>Number(r.amount));
+      const al=avg3||0;
+      salesChart=new Chart(ctx1,{
+        type:'bar',
+        data:{labels,datasets:[
+          {label:'매출',data:values,backgroundColor:values.map(v=>v>=(al||1)?'#378ADD':'#B5D4F4'),borderRadius:3,borderSkipped:false},
+          ...(al?[{label:'전월평균',data:Array(labels.length).fill(al),type:'line',borderColor:'#E24B4A',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]:[])
+        ]},
+        options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:22}},
+          plugins:{legend:{display:al>0},tooltip:{callbacks:{label:c=>c.dataset.type==='line'?`전월평균: ${al.toLocaleString()}원`:`매출: ${c.raw.toLocaleString()}원`}}},
+          scales:{x:{ticks:{color:tc,font:{size:9},autoSkip:false,maxRotation:45},grid:{display:false}},
+                  y:{ticks:{color:tc,font:{size:10},callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:gc}}}},
+        plugins:[{id:'tl',afterDatasetsDraw(chart){
+          const ds=chart.data.datasets[0];const meta=chart.getDatasetMeta(0);const c=chart.ctx;
+          c.save();c.font='500 10px '맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif';c.fillStyle=lc;c.textAlign='center';
+          meta.data.forEach((bar,i)=>{const v=ds.data[i];if(v>0)c.fillText(v>=1000000?(v/10000).toFixed(0)+'만':(v/1000).toFixed(0)+'천',bar.x,bar.y-6);});
+          c.restore();
+        }}]
+      });
+    }
+
+    /* 요일별 막대 */
+    const ctx2=document.getElementById('repDayChart');
+    if(ctx2&&dayAvgs.some(v=>v>0)){
+      const dayColors=['#E24B4A','#378ADD','#378ADD','#378ADD','#378ADD','#378ADD','#1e6b47'];
+      new Chart(ctx2,{
+        type:'bar',
+        data:{labels:['일','월','화','수','목','금','토'],
+          datasets:[{label:'요일별 평균',data:dayAvgs,backgroundColor:dayColors.map((c,i)=>dayAvgs[i]>0?c+'cc':'#cccccc44'),borderRadius:4,borderSkipped:false}]},
+        options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20}},
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`평균: ${c.raw.toLocaleString()}원`}}},
+          scales:{x:{ticks:{color:tc,font:{size:11}},grid:{display:false}},
+                  y:{ticks:{color:tc,font:{size:10},callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:gc}}}},
+        plugins:[{id:'dl2',afterDatasetsDraw(chart){
+          const meta=chart.getDatasetMeta(0);const c=chart.ctx;
+          c.save();c.font='600 10px '맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif';c.fillStyle=lc;c.textAlign='center';
+          meta.data.forEach((bar,i)=>{const v=dayAvgs[i];if(v>0)c.fillText((v/10000).toFixed(1)+'만',bar.x,bar.y-6);});
+          c.restore();
+        }}]
+      });
+    }
+  },150);
+}
+
+/* ════════════════════════════════════
+   ② 대시보드 — 매장 드롭다운 방식
+════════════════════════════════════ */
+function buildDashboard(){
+  const storeName=g('storeName')||'매장명 미입력';
+  const inspDate=g('inspDate')||'';
+  const opStart=g('opStart')||''; const opEnd=g('opEnd')||'';
+  const staffName=g('staffName')||'-'; const staffType=g('staffType')||'-';
+  const yrName=g('yrName')||'전년'; const rev2name=g('rev2name')||'전전월';
+  const rev3name=g('rev3name')||'전월'; const revTargetName=g('revTargetName')||'당월';
+  const revYr=Number(g('revYr'))||0; const avgYr=Number(g('avgYr'))||0;
+  const rev2=Number(g('rev2'))||0; const avg2=Number(g('avg2'))||0;
+  const rev3=Number(g('rev3'))||0; const avg3=Number(g('avg3'))||0;
+  const revTarget=Number(g('revTarget'))||0;
+  const totalSales=salesRows.reduce((sm,r)=>sm+Number(r.amount),0);
+  const achRate=revTarget>0?(totalSales/revTarget*100).toFixed(1):'0';
+  const svMarket=g('svMarket')||''; const svOpinion=g('svOpinion')||'';
+
+  const sorted=[...salesRows].filter(r=>r.amount>0).sort((a,b)=>a.date.localeCompare(b.date));
+  const salesDays=sorted.length;
+  const dailyAvg=salesDays>0?Math.round(totalSales/salesDays):0;
+  const maxDay=sorted.length?sorted.reduce((a,b)=>b.amount>a.amount?b:a):null;
+  const minDay=sorted.length?sorted.reduce((a,b)=>b.amount<a.amount?b:a):null;
+
+  const fmt=n=>n?n.toLocaleString():'0';
+  const fmtDate=d=>{if(!d)return'-';const dt=new Date(d);return`${dt.getMonth()+1}/${dt.getDate()}(${DAYS[dt.getDay()]})`};
+  const diffPct=(cur,base)=>(!base||!cur)?null:(cur/base*100-100).toFixed(1);
+
+  const db=getDB();
+  const curStore=CUR_STORE?db[CUR_STORE]:null;
+  const allVisits=curStore?sortedVisits(curStore):[];
+
+  const dayTotals=[0,0,0,0,0,0,0];const dayCounts=[0,0,0,0,0,0,0];
+  sorted.forEach(r=>{const d=new Date(r.date).getDay();dayTotals[d]+=r.amount;dayCounts[d]++;});
+  const dayAvgs=dayTotals.map((t,i)=>dayCounts[i]>0?Math.round(t/dayCounts[i]):0);
+
+  const dObj=new Date(inspDate);
+  const dateStr=inspDate?`${dObj.getFullYear()}.${pad(dObj.getMonth()+1)}.${pad(dObj.getDate())} ${DAYS[dObj.getDay()]}요일`:'-';
+  const qscOk=qscItems.filter(i=>i.status==='ok').length;
+  const qscWarn=qscItems.filter(i=>i.status==='warn').length;
+  const qscNg=qscItems.filter(i=>i.status==='ng').length;
+
+  /* ② 드롭다운 매장 선택바 */
+  const allStores=Object.values(db).sort((a,b)=>a.name.localeCompare(b.name));
+  let storeBarHtml='';
+  if(allStores.length===0){
+    /* 매장이 하나도 없을 때 안내 메시지 */
+    storeBarHtml=`<div class="dash-empty">
+      <div class="dash-empty-icon">🏪</div>
+      <h3>등록된 매장이 없습니다</h3>
+      <p>기본정보 탭에서 매장을 등록하고<br>데이터를 입력하면 대시보드가 표시됩니다.</p>
+      <button class="btn btn-primary" style="margin-top:1rem;" onclick="showPage('input')">매장 등록하러 가기</button>
+    </div>`;
+    document.getElementById('dashContent').innerHTML=storeBarHtml;
+    return;
+  } else {
+    let opts=allStores.map(store=>{
+      const cnt=Object.keys(store.visits||{}).length;
+      const lastV=sortedVisits(store)[0];
+      const lastDate=lastV?lastV.date:'방문 없음';
+      return `<option value="${store.id}" ${store.id===CUR_STORE?'selected':''}>${store.name}  (방문 ${cnt}회 · 최근: ${lastDate})</option>`;
+    }).join('');
+    storeBarHtml=`<div class="dash-store-bar">
+      <label>📂 매장 선택</label>
+      <select onchange="dashSelectStore(this.value)">${opts}</select>
+      <span class="dash-store-info">${allVisits.length}회 방문</span>
+    </div>`;
+  }
+
+  /* 월별 비교 카드 */
+  /* cur: 비교할 현재값, base: 기준값, basisTxt: 기준 설명 */
+  function compareCard(cls,label,baseAmt,baseAvg,curAmt,basisTxt){
+    const cur=(curAmt!==undefined&&curAmt!==null)?curAmt:totalSales;
+    const pct=diffPct(cur,baseAmt);
+    const isUp=pct!==null&&Number(pct)>=0;
+    const diff=(baseAmt&&cur)?cur-baseAmt:null;
+    const basis=basisTxt||'당월 매출 기준';
+    const MG="'맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif";
+    /* 증감에묹 +/- 배지 색상: 양수는 파란, 음수는 빨강 */
+    const badgeColor=isUp?'#1e40af':'#991b1b';
+    const badgeBg=isUp?'#eff6ff':'#fef2f2';
+    return `<div class="compare-card ${cls}">
+      <div class="dc-label">${label}</div>
+      <div style="font-size:16px;font-weight:700;font-family:${MG};color:var(--text);margin-bottom:2px;">${baseAmt?baseAmt.toLocaleString():'-'}원</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">일평균 ${baseAvg?baseAvg.toLocaleString():'-'}원</div>
+      ${pct!==null?`
+        <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;border-top:1px solid var(--border);padding-top:6px;">${basis}</div>
+        <span style="display:inline-block;font-size:13px;font-weight:700;padding:2px 8px;border-radius:5px;background:${badgeBg};color:${badgeColor};font-family:${MG};">${isUp?'+':''}${pct}%</span>
+        <div style="font-size:11px;margin-top:5px;color:${isUp?'var(--green)':'var(--red)'};">${isUp?'+':''}${diff!==null?diff.toLocaleString():''}원 ${isUp?'증가':'감소'}</div>
+      `:'<div style="border-top:1px solid var(--border);padding-top:6px;margin-top:4px;"><span style="font-size:12px;color:var(--text3);">데이터 없음</span></div>'}
+    </div>`;
+  }
+
+  let html=storeBarHtml+`
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1.25rem;">
+    <div>
+      <div style="font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.02em;">${storeName}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px;">${dateStr} · ${opStart}–${opEnd} · ${staffName} / ${staffType}</div>
+    </div>
+    <span class="pill blue">방문 ${allVisits.length}회</span>
+  </div>
+
+  <div class="dash-section">
+    <div class="dash-section-title"><span class="sec-dot" style="background:var(--accent);"></span>매출 핵심 지표</div>
+    <div class="dash-grid">
+      <div class="dash-card dc-blue"><div class="dc-label">당월 매출</div><div class="dc-val">${fmt(totalSales)}</div><div class="dc-sub">${salesDays}일 영업</div></div>
+      <div class="dash-card dc-green"><div class="dc-label">목표 달성률</div><div class="dc-val" style="color:${Number(achRate)>=100?'var(--green)':'var(--amber)'};">${achRate}%</div><div class="dc-sub" style="font-size:15px;font-weight:700;color:var(--text2);margin-top:6px;">목표 ${fmt(revTarget)}원</div></div>
+      <div class="dash-card dc-amber"><div class="dc-label">일 평균 매출</div><div class="dc-val">${fmt(dailyAvg)}</div><div class="dc-sub">${avg3?rev3name+' 평균 '+fmt(avg3)+'원':''}</div></div>
+      <div class="dash-card dc-green"><div class="dc-label">최고 매출일</div><div class="dc-val" style="font-size:18px;color:var(--green);">${maxDay?fmt(maxDay.amount):'-'}</div><div class="dc-sub">${maxDay?fmtDate(maxDay.date):''}</div></div>
+      <div class="dash-card dc-red"><div class="dc-label">최저 매출일</div><div class="dc-val" style="font-size:18px;color:var(--red);">${minDay?fmt(minDay.amount):'-'}</div><div class="dc-sub">${minDay?fmtDate(minDay.date):''}</div></div>
+    </div>
+  </div>
+
+  <div class="dash-section">
+    <div class="dash-section-title"><span class="sec-dot" style="background:var(--amber);"></span>월별 매출 비교</div>
+    <div class="compare-grid">
+      ${compareCard('cc-purple',yrName+' (전년 동월)',revYr,avgYr,totalSales,'전년 기준')}
+      ${compareCard('cc-blue',rev2name+' (전전월)',rev2,avg2,rev3,'전전월 기준')}
+      ${compareCard('cc-green',rev3name+' (전월)',rev3,avg3,totalSales,'전월 기준')}
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem;">
+    <div class="dash-section" style="margin-bottom:0;">
+      <div class="dash-section-title"><span class="sec-dot" style="background:var(--blue);"></span>일별 매출 추이</div>
+      <div class="dash-chart-wrap"><div class="dash-chart-area"><canvas id="dashSalesChart"></canvas></div></div>
+    </div>
+    <div class="dash-section" style="margin-bottom:0;">
+      <div class="dash-section-title"><span class="sec-dot" style="background:var(--amber);"></span>요일별 평균 매출</div>
+      <div class="dash-chart-wrap"><div class="dash-chart-area"><canvas id="dashDayChart"></canvas></div></div>
+    </div>
+  </div>
+
+  <div class="dash-section">
+    <div class="dash-section-title"><span class="sec-dot" style="background:var(--green);"></span>QSC 점검 현황</div>
+    <div class="dash-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px;">
+      <div class="dash-card dc-green" style="text-align:center;"><div class="dc-label">양호</div><div class="dc-val" style="color:var(--green);">${qscOk}</div></div>
+      <div class="dash-card dc-amber" style="text-align:center;"><div class="dc-label">주의</div><div class="dc-val" style="color:var(--amber);">${qscWarn}</div></div>
+      <div class="dash-card dc-red" style="text-align:center;"><div class="dc-label">불량</div><div class="dc-val" style="color:var(--red);">${qscNg}</div></div>
+    </div>
+    <div class="qsc-mini">`;
+
+  qscItems.forEach(item=>{
+    const cls=item.status==='ng'?'ng':(item.status==='warn'?'warn':'ok');
+    html+=`<div class="qsc-mini-item ${cls}">${item.label}<br>${{ok:'양호',warn:'주의',ng:'불량'}[item.status]}</div>`;
+  });
+  html+=`</div></div>`;
+
+  if(allVisits.length>0){
+    html+=`<div class="dash-section">
+      <div class="dash-section-title"><span class="sec-dot" style="background:#7c3aed;"></span>방문 이력 (${allVisits.length}회 누적) — 클릭하여 열람</div>
+      <div class="visit-timeline-dash">`;
+    allVisits.slice(0,20).forEach((visit,i)=>{
+      const total=(visit.snapshot.salesRows||[]).reduce((sm,r)=>sm+Number(r.amount),0);
+      html+=`<span class="vtag ${i===0?'latest':''}" onclick="dashLoadVisit('${CUR_STORE}','${visit.visitId}')" title="${total>0?total.toLocaleString()+'원':''}">${visit.date}</span>`;
+    });
+    if(allVisits.length>20)html+=`<span class="vtag">+${allVisits.length-20}건</span>`;
+    html+=`</div></div>`;
+  }
+
+  if(svMarket||svOpinion){
+    html+=`<div class="dash-section"><div class="dash-section-title"><span class="sec-dot" style="background:var(--red);"></span>SV 의견 요약</div>`;
+    if(svMarket)html+=`<div class="dash-summary" style="margin-bottom:8px;"><strong style="color:var(--blue);">상권 분석:</strong> ${svMarket.replace(/\n/g,'<br>')}</div>`;
+    if(svOpinion)html+=`<div class="dash-summary"><strong style="color:var(--green);">종합 의견:</strong> ${svOpinion.replace(/\n/g,'<br>')}</div>`;
+    html+=`</div>`;
+  }
+
+  document.getElementById('dashContent').innerHTML=html;
+
+  setTimeout(()=>{
+    const isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const tc=isDark?'rgba(255,255,255,.4)':'rgba(0,0,0,.38)';
+    const gc=isDark?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)';
+    const lc=isDark?'rgba(255,255,255,.55)':'rgba(0,0,0,.5)';
+    const ctx1=document.getElementById('dashSalesChart');
+    if(ctx1){
+      if(dashChart1)dashChart1.destroy();
+      const labels=sorted.map(r=>{const d=new Date(r.date);return`${d.getMonth()+1}/${d.getDate()}`;});
+      const values=sorted.map(r=>r.amount);
+      const al=avg3||dailyAvg;
+      dashChart1=new Chart(ctx1,{
+        type:'bar',
+        data:{labels,datasets:[
+          {label:'매출',data:values,backgroundColor:values.map(v=>v>=al?'#378ADD':'#B5D4F4'),borderRadius:3,borderSkipped:false},
+          ...(al?[{label:'평균',data:Array(labels.length).fill(al),type:'line',borderColor:'#E24B4A',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}]:[])
+        ]},
+        options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20}},
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.type==='line'?'평균: '+c.raw.toLocaleString()+'원':'매출: '+c.raw.toLocaleString()+'원'}}},
+          scales:{x:{ticks:{color:tc,font:{size:9},autoSkip:false,maxRotation:45},grid:{display:false}},y:{ticks:{color:tc,font:{size:9},callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:gc}}}},
+        plugins:[{id:'tl',afterDatasetsDraw(chart){
+          const ds=chart.data.datasets[0];const meta=chart.getDatasetMeta(0);const c=chart.ctx;
+          c.save();c.font='500 9px '맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif';c.fillStyle=lc;c.textAlign='center';
+          meta.data.forEach((bar,i)=>{const v=ds.data[i];c.fillText(v>=1000000?(v/10000).toFixed(0)+'만':(v/1000).toFixed(0)+'천',bar.x,bar.y-5);});
+          c.restore();
+        }}]
+      });
+    }
+    const ctx2=document.getElementById('dashDayChart');
+    if(ctx2){
+      if(dashChart2)dashChart2.destroy();
+      dashChart2=new Chart(ctx2,{
+        type:'bar',
+        data:{labels:['일','월','화','수','목','금','토'],datasets:[{label:'평균',data:dayAvgs,backgroundColor:['#B5D4F4','#B5D4F4','#B5D4F4','#B5D4F4','#B5D4F4','#378ADD','#378ADD'],borderRadius:4,borderSkipped:false}]},
+        options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20}},
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'평균: '+c.raw.toLocaleString()+'원'}}},
+          scales:{x:{ticks:{color:tc,font:{size:11}},grid:{display:false}},y:{ticks:{color:tc,font:{size:9},callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:gc}}}},
+        plugins:[{id:'dl',afterDatasetsDraw(chart){
+          const ds=chart.data.datasets[0];const meta=chart.getDatasetMeta(0);const c=chart.ctx;
+          c.save();c.font='500 10px '맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif';c.fillStyle=lc;c.textAlign='center';
+          meta.data.forEach((bar,i)=>{const v=ds.data[i];if(v)c.fillText((v/10000).toFixed(0)+'만',bar.x,bar.y-5);});
+          c.restore();
+        }}]
+      });
+    }
+  },150);
+}
+
+function dashSelectStore(storeId){
+  const db=getDB(); const store=db[storeId]; if(!store)return;
+  CUR_STORE=storeId;
+  const visits=sortedVisits(store);
+  if(visits.length>0){
+    loadVisit(storeId,visits[0].visitId);
+  } else {
+    resetToBlank(store.name);
+  }
+  document.getElementById('storeSelect').value=storeId;
+  buildDashboard();
+}
+
+function dashLoadVisit(storeId,visitId){
+  loadVisit(storeId,visitId);
+  buildDashboard();
+}
+
+/* ════════════════════════════════════
+   URL 공유
+════════════════════════════════════ */
+function encodeData(obj){
+  try{const j=JSON.stringify(obj);const b=new TextEncoder().encode(j);let s='';b.forEach(c=>s+=String.fromCharCode(c));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}catch(e){return '';}
+}
+function decodeData(str){
+  try{const b64=str.replace(/-/g,'+').replace(/_/g,'/');const bin=atob(b64);const b=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);return JSON.parse(new TextDecoder().decode(b));}catch(e){return null;}
+}
+function openShareModal(){
+  const snap=gatherSnap(); snap.storeName=g('storeName');
+  const url=location.origin+location.pathname+'#share='+encodeData(snap);
+  document.getElementById('shareUrlText').value=url;
+  document.getElementById('shareModal').classList.add('open');
+}
+function closeShareModal(){document.getElementById('shareModal').classList.remove('open');}
+function copyShareUrl(){
+  const el=document.getElementById('shareUrlText');el.select();
+  navigator.clipboard.writeText(el.value).then(()=>alert('URL이 복사되었습니다.')).catch(()=>{document.execCommand('copy');alert('복사되었습니다.');});
+}
+function checkShareHash(){
+  const hash=location.hash;
+  if(!hash.startsWith('#share='))return false;
+  const snap=decodeData(hash.slice(7)); if(!snap)return false;
+  if(!confirm(`"${snap.storeName||'공유 매장'}" 데이터를 불러오시겠습니까?`))return false;
+  const db=getDB();
+  const storeId='s_'+Date.now(); const visitId='v_'+Date.now();
+  db[storeId]={id:storeId,name:snap.storeName||'공유매장',createdAt:new Date().toISOString(),
+    visits:{[visitId]:{visitId,date:snap.inspDate||'',savedAt:new Date().toISOString(),snapshot:snap}},currentVisitId:visitId};
+  setDB(db);
+  CUR_STORE=storeId; CUR_VISIT=visitId; saveState2();
+  applySnap(snap); s('storeName',snap.storeName||'공유매장');
+  renderStoreSelect(); document.getElementById('storeSelect').value=storeId;
+  renderVisitAcc(storeId);
+  document.getElementById('newStoreBox').style.display='none';
+  history.replaceState(null,'',location.pathname);
+  alert('공유 데이터를 불러왔습니다. 매장 목록에 저장되었습니다.');
+  return true;
+}
+
+/* ════════════════════════════════════
+   Excel / PDF / PPT
+════════════════════════════════════ */
+function exportExcel(){
+  const d=_rptData();
+  const {storeName,inspDate,inspTime,opStart,opEnd,staffName,staffType,
+    revYr,avgYr,yrName,rev2,avg2,rev2name,rev3,avg3,rev3name,
+    revTarget,revTargetName,totalSales,achRate,svMarket,svOpinion,
+    sorted,dayAvgs,dayCounts,achStr}=d;
+
+  const wb=XLSX.utils.book_new();
+
+  /* ── 시트1: 매출 및 QSC ── */
+  const rows=[];
+  rows.push([storeName+' 매장 점검 보고서']); rows.push([]);
+  const visitStr=inspTime?inspDate+' (방문 '+inspTime+')':inspDate;
+  rows.push(['점검일',visitStr,'영업시간',opStart+' ~ '+opEnd,'근무자',staffName,'근무형태',staffType]);
+  rows.push([]);
+
+  rows.push(['[ 월별 매출 현황 ]']);
+  rows.push(['구분','실매출(원)','일평균(원)','당월 대비']);
+  rows.push([yrName,revYr,avgYr,achStr(totalSales,revYr)]);
+  rows.push([rev2name,rev2,avg2,achStr(totalSales,rev2)]);
+  rows.push([rev3name,rev3,avg3,achStr(totalSales,rev3)]);
+  rows.push([revTargetName+' 목표',revTarget,revTargetName+' 당월',totalSales,'달성률',achRate+'%']);
+  rows.push([]);
+
+  rows.push(['[ 일별 매출 ]']);
+  rows.push(['날짜','요일','매출(원)','','날짜','요일','매출(원)','']);
+  const half=Math.ceil(sorted.length/2);
+  for(let i=0;i<half;i++){
+    const L=sorted[i];const R=sorted[i+half];const dL=new Date(L.date);
+    const rd=[L.date,DAYS[dL.getDay()],Number(L.amount),''];
+    if(R){const dR=new Date(R.date);rd.push(R.date,DAYS[dR.getDay()],Number(R.amount),'');}
+    else rd.push('','','','');
+    rows.push(rd);
+  }
+  rows.push(['','','합계',totalSales,'','','','']);
+  rows.push([]);
+
+  rows.push(['[ 요일별 평균 매출 ]']);
+  rows.push(['요일','일','월','화','수','목','금','토']);
+  rows.push(['평균(원)',...dayAvgs]);
+  rows.push(['방문일수',...dayCounts]);
+  rows.push([]);
+
+  rows.push(['[ QSC 점검 결과 ]']);
+  rows.push(['No','점검항목','상태','메모']);
+  qscItems.forEach((item,i)=>rows.push([i+1,item.label,{ok:'양호',warn:'주의',ng:'불량'}[item.status],item.note||'']));
+
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:16},{wch:16},{wch:18},{wch:14},{wch:16},{wch:16},{wch:18},{wch:14}];
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:7}}];
+  XLSX.utils.book_append_sheet(wb,ws,'매출 및 QSC');
+
+  /* ── 시트2: SV 의견 ── */
+  const ws2=XLSX.utils.aoa_to_sheet([
+    [storeName+' — SV 의견'],
+    ['점검일: '+visitStr+'  |  '+staffName+' / '+staffType],
+    [],
+    ['[ 상권 분석 및 전략 ]'],
+    [svMarket||'(내용 없음)'],
+    [],
+    ['[ 종합 의견 ]'],
+    [svOpinion||'(내용 없음)']
+  ]);
+  ws2['!cols']=[{wch:100}];
+  ws2['!merges']=[{s:{r:0,c:0},e:{r:0,c:3}}];
+  XLSX.utils.book_append_sheet(wb,ws2,'SV 의견');
+
+  /* ── 시트3: 첨부 사진 목록 (사진 자체는 엑셀에 미지원, 캡션 목록만) ── */
+  if(attachedPhotos.length>0){
+    const ws3rows=[];
+    ws3rows.push([storeName+' — 현장 첨부 사진 목록']);
+    ws3rows.push(['점검일: '+visitStr]);
+    ws3rows.push([]);
+    ws3rows.push(['No','파일명(순번)','캡션','비고']);
+    attachedPhotos.forEach((p,i)=>{
+      ws3rows.push([i+1,'사진_'+(i+1),p.caption||'(캡션 없음)','※ 사진 원본은 PDF/PPT 파일 참조']);
+    });
+    ws3rows.push([]);
+    ws3rows.push(['※ 첨부된 사진 원본은 PDF 또는 PPT 파일에서 확인 가능합니다.']);
+    const ws3=XLSX.utils.aoa_to_sheet(ws3rows);
+    ws3['!cols']=[{wch:6},{wch:18},{wch:40},{wch:35}];
+    ws3['!merges']=[{s:{r:0,c:0},e:{r:0,c:3}}];
+    XLSX.utils.book_append_sheet(wb,ws3,'첨부사진 목록');
+  }
+
+  XLSX.writeFile(wb,`${storeName}_점검보고서_${inspDate}.xlsx`);
+}
+
+/* ── PDF용 HTML 캡처 헬퍼 ── */
+function _captureEl(el,scale){
+  return html2canvas(el,{scale:scale||2,useCORS:true,backgroundColor:'#ffffff',logging:false});
+}
+
+function _canvasToPdfPages(pdf,canvas,margin){
+  const m=margin||10;
+  const {jsPDF}=window.jspdf;
+  const iW=canvas.width; const iH=canvas.height;
+  const pW=210; const pH=297; const cW=pW-m*2;
+  const cH=iH*cW/iW; const pcH=pH-m*2;
+  const tp=Math.ceil(cH/pcH);
+  for(let p=0;p<tp;p++){
+    if(p>0)pdf.addPage();
+    const sY=p*pcH*iW/cW; const sH=Math.min(pcH*iW/cW,iH-sY); const dH=sH*cW/iW;
+    const tc=document.createElement('canvas'); tc.width=iW; tc.height=sH;
+    tc.getContext('2d').drawImage(canvas,0,sY,iW,sH,0,0,iW,sH);
+    pdf.addImage(tc.toDataURL('image/jpeg',0.95),'JPEG',m,m,cW,dH);
+  }
+}
+
+function exportPDF(){
+  const {jsPDF}=window.jspdf;
+  const d=_rptData();
+  const {storeName,inspDate,inspTime,opStart,opEnd,staffName,staffType,svMarket,svOpinion,dateStr}=d;
+
+  /* 메인 보고서 영역 (SV 제외) */
+  const reportEl=document.getElementById('reportContent');
+  const origStyles={bg:document.body.style.background,elBg:reportEl.style.background,
+    color:reportEl.style.color,padding:reportEl.style.padding};
+
+  /* SV카드 임시 숨기기 → 1페이지 캡처 */
+  const svCards=reportEl.querySelectorAll('.sv-card');
+  const svLabels=[];
+  let svStart=null;
+  reportEl.querySelectorAll('.sec-label').forEach(el=>{
+    if(el.textContent.includes('상권 분석')||el.textContent.includes('종합 의견'))svLabels.push(el);
+  });
+  const shareBtn=reportEl.querySelector('[onclick="openShareModal()"]')?.parentElement;
+
+  /* 임시 숨김 */
+  [...svCards,...svLabels,...(shareBtn?[shareBtn]:[])].forEach(el=>{if(el)el.style.display='none';});
+
+  document.body.style.background='#fff';
+  reportEl.style.cssText='background:#fff;color:#1a1917;padding:12px;font-family:"맑은 고딕","Malgun Gothic","Noto Sans KR",sans-serif;';
+
+  _captureEl(reportEl).then(canvas1=>{
+    /* 복원 */
+    [...svCards,...svLabels,...(shareBtn?[shareBtn]:[])].forEach(el=>{if(el)el.style.display='';});
+    document.body.style.background=origStyles.bg;
+    reportEl.style.cssText='';
+
+    const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+    _canvasToPdfPages(pdf,canvas1,10);
+
+    /* ── SV 의견 별도 페이지 ── */
+    if(svMarket||svOpinion){
+      const visitTimeStr=inspTime?` · 방문 ${inspTime}`:'';
+      const svHtml=document.createElement('div');
+      svHtml.style.cssText='width:700px;background:#fff;padding:24px 28px;font-family:"맑은 고딕","Malgun Gothic","Noto Sans KR",sans-serif;color:#1a1917;';
+      svHtml.innerHTML=`
+        <div style="border-bottom:3px solid #1e6b47;padding-bottom:10px;margin-bottom:18px;">
+          <div style="font-size:18px;font-weight:700;font-family:'맑은 고딕','Malgun Gothic',sans-serif;">${storeName} · SV 의견</div>
+          <div style="font-size:11px;color:#6b6860;margin-top:4px;">${dateStr}${visitTimeStr} &nbsp;|&nbsp; 영업 ${opStart}–${opEnd} &nbsp;|&nbsp; ${staffName} / ${staffType}</div>
+        </div>
+        ${svMarket?`
+        <div style="background:#eff6ff;border-left:4px solid #1e40af;padding:10px 14px;border-radius:4px;margin-bottom:6px;">
+          <div style="font-size:12px;font-weight:700;color:#1e40af;font-family:'맑은 고딕','Malgun Gothic',sans-serif;margin-bottom:6px;">상권 분석 및 전략</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:14px 16px;border-radius:4px;margin-bottom:18px;font-size:13px;line-height:1.9;white-space:pre-wrap;font-family:'맑은 고딕','Malgun Gothic',sans-serif;">${svMarket}</div>`:''}
+        ${svOpinion?`
+        <div style="background:#e4f5ec;border-left:4px solid #1e6b47;padding:10px 14px;border-radius:4px;margin-bottom:6px;">
+          <div style="font-size:12px;font-weight:700;color:#1e6b47;font-family:'맑은 고딕','Malgun Gothic',sans-serif;margin-bottom:6px;">종합 의견</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:14px 16px;border-radius:4px;font-size:13px;line-height:1.9;white-space:pre-wrap;font-family:'맑은 고딕','Malgun Gothic',sans-serif;">${svOpinion}</div>`:''}
+      `;
+      document.body.appendChild(svHtml);
+      _captureEl(svHtml,2).then(canvas2=>{
+        document.body.removeChild(svHtml);
+        pdf.addPage();
+        _canvasToPdfPages(pdf,canvas2,10);
+        /* 첨부사진 페이지 */
+        _pdfAddPhotos(pdf,storeName,inspDate).then(()=>pdf.save(`${storeName}_점검보고서_${inspDate}.pdf`));
+      });
+    } else {
+      /* 첨부사진 페이지 */
+      _pdfAddPhotos(pdf,storeName,inspDate).then(()=>pdf.save(`${storeName}_점검보고서_${inspDate}.pdf`));
+    }
+  });
+}
+
+/* 첨부사진을 PDF에 추가하는 헬퍼 */
+function _pdfAddPhotos(pdf,storeName,inspDate){
+  if(!attachedPhotos.length)return Promise.resolve();
+  const m=10;const pW=210;const pH=297;const cW=pW-m*2;
+  const cols=2;const gap=4;
+  const cellW=(cW-gap*(cols-1))/cols;
+  const cellH=cellW*3/4;/* 4:3 비율 */
+  const rowH=cellH+14;/* 캡션 포함 */
+  const startY=m+16;
+  const usableH=pH-m*2-16;
+  const rowsPerPage=Math.floor(usableH/rowH);
+
+  return new Promise(resolve=>{
+    /* 모든 이미지를 Image 객체로 미리 로드 */
+    const imgs=attachedPhotos.map(p=>{
+      const img=new Image();img.src=p.dataUrl;return img;
+    });
+    Promise.all(imgs.map(img=>new Promise(r=>{
+      if(img.complete)r();else img.onload=r;img.onerror=r;
+    }))).then(()=>{
+      let curPage=false;
+      attachedPhotos.forEach((photo,i)=>{
+        const row=Math.floor(i/cols);const col=i%cols;
+        if(i===0||(col===0&&row%rowsPerPage===0&&i>0)){
+          pdf.addPage();curPage=true;
+          pdf.setFont('helvetica','bold');
+          pdf.setFontSize(12);pdf.setTextColor(30,107,71);
+          pdf.text(`${storeName} · 현장 첨부 사진`,m,m+6);
+          pdf.setDrawColor(30,107,71);pdf.setLineWidth(0.5);
+          pdf.line(m,m+9,pW-m,m+9);
+          pdf.setTextColor(100,100,100);
+        }
+        const pageRow=row%rowsPerPage;
+        const x=m+col*(cellW+gap);
+        const y=startY+pageRow*rowH;
+        /* 이미지 그리기 */
+        try{
+          const canvas=document.createElement('canvas');
+          canvas.width=imgs[i].naturalWidth||400;
+          canvas.height=imgs[i].naturalHeight||300;
+          const ctx=canvas.getContext('2d');
+          ctx.drawImage(imgs[i],0,0);
+          const imgData=canvas.toDataURL('image/jpeg',0.85);
+          /* 비율 유지하며 cellW x cellH에 맞추기 */
+          const iW=imgs[i].naturalWidth||400;const iH=imgs[i].naturalHeight||300;
+          const scale=Math.min(cellW/iW*(96/0.352778),cellH/iH*(96/0.352778));
+          const dW=(iW*scale*(0.352778/96));const dH=(iH*scale*(0.352778/96));
+          const ox=(cellW-dW)/2;const oy=(cellH-dH)/2;
+          pdf.addImage(imgData,'JPEG',x+ox,y+oy,dW,dH);
+        }catch(e){/* 이미지 오류 무시 */}
+        /* 캡션 */
+        if(photo.caption){
+          pdf.setFont('helvetica','normal');
+          pdf.setFontSize(7.5);pdf.setTextColor(80,80,80);
+          pdf.text(photo.caption.substring(0,30),x+cellW/2,y+cellH+5,{align:'center'});
+        }
+        /* 번호 */
+        pdf.setFont('helvetica','normal');
+        pdf.setFontSize(7);pdf.setTextColor(150,150,150);
+        pdf.text(`${i+1}/${attachedPhotos.length}`,x+1,y+3);
+      });
+      resolve();
+    });
+  });
+}
+
+function exportPPT(){
+  const d=_rptData();
+  const {storeName,inspDate,inspTime,opStart,opEnd,staffName,staffType,
+    revYr,avgYr,yrName,rev2,avg2,rev2name,rev3,avg3,rev3name,
+    revTarget,revTargetName,totalSales,achRate,svMarket,svOpinion,
+    dateStr,sorted,dayAvgs,dayCounts,achStr,fmt}=d;
+
+  const FF='맑은 고딕';/* 맑은고딕 폰트 */
+  const visitTimeStr=inspTime?` | 방문 ${inspTime}`:'';
+  const headerSubTxt=`${dateStr}${visitTimeStr}  |  영업 ${opStart}–${opEnd}  |  ${staffName} / ${staffType}`;
+
+  const pptx=new PptxGenJS();
+  pptx.defineLayout({name:'A4P',width:7.5,height:10});
+  pptx.layout='A4P';
+
+  /* ── 슬라이드 헤더 헬퍼 ── */
+  function addHeader(slide,title){
+    slide.background={fill:'FFFFFF'};
+    slide.addShape(pptx.ShapeType.rect,{x:0,y:0,w:7.5,h:0.78,fill:'1e6b47'});
+    slide.addText(storeName+' · '+title,{x:0.35,y:0.06,w:7.0,h:0.38,fontSize:15,bold:true,color:'FFFFFF',fontFace:FF});
+    slide.addText(headerSubTxt,{x:0.35,y:0.46,w:7.0,h:0.25,fontSize:8.5,color:'AADDBB',fontFace:FF});
+  }
+
+  /* ════════ 슬라이드 1: 월별 매출 현황 ════════ */
+  const p1=pptx.addSlide();
+  addHeader(p1,'점검 보고서');
+  p1.addText('월별 매출 현황',{x:0.35,y:0.9,w:7.0,h:0.28,fontSize:11,bold:true,color:'1a1917',fontFace:FF});
+  const mTbl=[
+    [{text:'구분',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:8.5,fontFace:FF}},
+     {text:'실매출',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:8.5,fontFace:FF}},
+     {text:'일평균',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:8.5,fontFace:FF}},
+     {text:'대비',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:8.5,fontFace:FF}}],
+    [{text:yrName,options:{fontFace:FF}},fmt(revYr),fmt(avgYr),achStr(totalSales,revYr)],
+    [{text:rev2name,options:{fontFace:FF}},fmt(rev2),fmt(avg2),achStr(totalSales,rev2)],
+    [{text:rev3name,options:{fontFace:FF}},fmt(rev3),fmt(avg3),achStr(totalSales,rev3)],
+    [{text:revTargetName+' 목표',options:{bold:true,fontFace:FF}},fmt(revTarget),
+     {text:'당월: '+fmt(totalSales),options:{bold:true,fontFace:FF}},
+     {text:'달성률 '+achRate+'%',options:{bold:true,color:'854f0b',fontFace:FF}}],
+  ];
+  p1.addTable(mTbl,{x:0.35,y:1.22,w:6.8,fontSize:8.5,fontFace:FF,
+    border:{type:'solid',pt:0.5,color:'DDDDDD'},rowH:0.3,colW:[1.5,2.0,1.9,1.4]});
+
+  /* 달성률 프로그레스 바 */
+  const barW=6.8; const fillW=barW*(achRate/100);
+  p1.addShape(pptx.ShapeType.rect,{x:0.35,y:2.88,w:barW,h:0.13,fill:'EEEEEE',line:{color:'DDDDDD',pt:0.5}});
+  if(fillW>0)p1.addShape(pptx.ShapeType.rect,{x:0.35,y:2.88,w:Math.min(fillW,barW),h:0.13,fill:'1e6b47'});
+  p1.addText(`목표 달성률: ${achRate}% (${totalSales.toLocaleString()}원 / ${revTarget.toLocaleString()}원)`,
+    {x:0.35,y:3.03,w:6.8,h:0.22,fontSize:8,color:'555555',fontFace:FF});
+
+  /* ════════ 슬라이드 2: 일별 매출 ════════ */
+  const p2=pptx.addSlide();
+  addHeader(p2,'일별 매출');
+  p2.addText('일별 매출 내역',{x:0.35,y:0.9,w:7.0,h:0.28,fontSize:11,bold:true,color:'1a1917',fontFace:FF});
+
+  const dHead=[
+    {text:'날짜',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:7.5,fontFace:FF}},
+    {text:'요일',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:7.5,fontFace:FF}},
+    {text:'매출',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:7.5,fontFace:FF}},
+    {text:'',options:{fill:'F0F0F0',fontSize:1}},
+    {text:'날짜',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:7.5,fontFace:FF}},
+    {text:'요일',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:7.5,fontFace:FF}},
+    {text:'매출',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:7.5,fontFace:FF}}];
+  const dRows=[dHead];
+  const half=Math.ceil(sorted.length/2);
+  for(let i=0;i<half;i++){
+    const L=sorted[i]; const R=sorted[i+half]; const dL=new Date(L.date);
+    const row=[{text:`${dL.getMonth()+1}/${dL.getDate()}`,options:{fontFace:FF}},
+               {text:DAYS[dL.getDay()],options:{align:'center',fontFace:FF}},
+               {text:fmt(L.amount),options:{align:'right',fontFace:FF}},
+               {text:'',options:{fill:'F8F8F8'}}];
+    if(R){const dR=new Date(R.date);
+      row.push({text:`${dR.getMonth()+1}/${dR.getDate()}`,options:{fontFace:FF}},
+               {text:DAYS[dR.getDay()],options:{align:'center',fontFace:FF}},
+               {text:fmt(R.amount),options:{align:'right',fontFace:FF}});}
+    else row.push('','','');
+    dRows.push(row);
+  }
+  dRows.push([{text:'합계',options:{bold:true,fontFace:FF}},'',
+    {text:fmt(totalSales),options:{bold:true,align:'right',fontFace:FF}},'','','','']);
+  p2.addTable(dRows,{x:0.35,y:1.22,w:6.8,fontSize:7.5,fontFace:FF,
+    border:{type:'solid',pt:0.5,color:'DDDDDD'},rowH:0.22,colW:[0.9,0.42,1.5,0.18,0.9,0.42,1.5]});
+
+  /* ════════ 슬라이드 3: 요일별 평균 매출 ════════ */
+  const p3=pptx.addSlide();
+  addHeader(p3,'요일별 평균 매출');
+  p3.addText('요일별 평균 매출',{x:0.35,y:0.9,w:7.0,h:0.28,fontSize:11,bold:true,color:'1a1917',fontFace:FF});
+  const dayNames=['일','월','화','수','목','금','토'];
+  const dayColors=['E24B4A','378ADD','378ADD','378ADD','378ADD','378ADD','1e6b47'];
+  const dayHead=dayNames.map(n=>({text:n,options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:9,align:'center',fontFace:FF}}));
+  const dayDataRow=dayAvgs.map((v,i)=>({text:v>0?(v/10000).toFixed(1)+'만':'-',
+    options:{align:'center',fontSize:9,bold:v>0,
+      color:v>0?dayColors[i]:'999999',fontFace:FF}}));
+  const dayCntRow=dayCounts.map((c,i)=>({text:c>0?c+'일분':'-',
+    options:{align:'center',fontSize:8,color:'888888',fontFace:FF}}));
+  p3.addTable([dayHead,dayDataRow,dayCntRow],{x:0.35,y:1.22,w:6.8,fontSize:9,fontFace:FF,
+    border:{type:'solid',pt:0.5,color:'DDDDDD'},rowH:0.38,colW:[0.97,0.97,0.97,0.97,0.97,0.97,0.97]});
+
+  /* 요일별 간이 막대 */
+  const maxAvg=Math.max(...dayAvgs,1);
+  const barBaseY=2.35; const barMaxH=4.0; const barW2=0.65; const barGap=0.97;
+  dayAvgs.forEach((v,i)=>{
+    const bh=v>0?(v/maxAvg)*barMaxH:0;
+    const bx=0.35+i*barGap+(barGap-barW2)/2;
+    const by=barBaseY+barMaxH-bh;
+    if(v>0){
+      p3.addShape(pptx.ShapeType.rect,{x:bx,y:by,w:barW2,h:bh,fill:dayColors[i]+'BB',line:{color:dayColors[i],pt:0.5}});
+      p3.addText((v/10000).toFixed(1)+'만',{x:bx,y:by-0.22,w:barW2,h:0.2,fontSize:7.5,align:'center',color:dayColors[i],bold:true,fontFace:FF});
+    } else {
+      p3.addShape(pptx.ShapeType.rect,{x:bx,y:barBaseY,w:barW2,h:0.06,fill:'DDDDDD'});
+    }
+    /* 요일 레이블 */
+    p3.addText(dayNames[i],{x:bx,y:barBaseY+barMaxH+0.04,w:barW2,h:0.22,fontSize:9,align:'center',
+      color:i===0?'E24B4A':(i===6?'1e6b47':'555555'),bold:true,fontFace:FF});
+  });
+
+  /* ════════ 슬라이드 4: QSC 점검 ════════ */
+  const p4=pptx.addSlide();
+  addHeader(p4,'QSC 점검 결과');
+  p4.addText('QSC 점검 결과',{x:0.35,y:0.9,w:7.0,h:0.28,fontSize:11,bold:true,color:'1a1917',fontFace:FF});
+  const qHead=[
+    {text:'No',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:8,align:'center',fontFace:FF}},
+    {text:'점검항목',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:8,fontFace:FF}},
+    {text:'상태',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:8,align:'center',fontFace:FF}},
+    {text:'메모',options:{bold:true,fill:'1e6b47',color:'FFFFFF',fontSize:8,fontFace:FF}}];
+  const qRows=[qHead];
+  const sc={ok:'e4f5ec',warn:'fef3c7',ng:'fef2f2'};
+  qscItems.forEach((item,i)=>qRows.push([
+    {text:String(i+1),options:{align:'center',fontFace:FF}},
+    {text:item.label,options:{fontFace:FF}},
+    {text:{ok:'양호',warn:'주의',ng:'불량'}[item.status],options:{fill:sc[item.status],align:'center',fontFace:FF}},
+    {text:item.note||'',options:{fontFace:FF}}
+  ]));
+  p4.addTable(qRows,{x:0.35,y:1.22,w:6.8,fontSize:8,fontFace:FF,
+    border:{type:'solid',pt:0.5,color:'DDDDDD'},rowH:0.25,colW:[0.4,2.9,0.65,2.85]});
+
+  /* ════════ 슬라이드 5: 상권 분석 ════════ */
+  if(svMarket){
+    const p5=pptx.addSlide();
+    addHeader(p5,'상권 분석 및 전략');
+    p5.addShape(pptx.ShapeType.rect,{x:0.35,y:0.9,w:6.8,h:0.3,fill:'eff6ff',line:{color:'bfdbfe',pt:0.5}});
+    p5.addText('상권 분석 및 전략',{x:0.45,y:0.91,w:6.6,h:0.28,fontSize:11,bold:true,color:'1e40af',fontFace:FF});
+    p5.addText(svMarket,{x:0.35,y:1.32,w:6.8,h:8.3,fontSize:10.5,color:'1a1917',fontFace:FF,
+      valign:'top',wrap:true,lineSpacing:20});
+  }
+
+  /* ════════ 슬라이드 6: 종합 의견 ════════ */
+  if(svOpinion){
+    const p6=pptx.addSlide();
+    addHeader(p6,'종합 의견');
+    p6.addShape(pptx.ShapeType.rect,{x:0.35,y:0.9,w:6.8,h:0.3,fill:'e4f5ec',line:{color:'6ee7b7',pt:0.5}});
+    p6.addText('종합 의견',{x:0.45,y:0.91,w:6.6,h:0.28,fontSize:11,bold:true,color:'1e6b47',fontFace:FF});
+    p6.addText(svOpinion,{x:0.35,y:1.32,w:6.8,h:8.3,fontSize:10.5,color:'1a1917',fontFace:FF,
+      valign:'top',wrap:true,lineSpacing:20});
+  }
+
+  /* ════════ 슬라이드 7+: 현장 첨부 사진 ════════ */
+  if(attachedPhotos.length>0){
+    const cols=2;const rows=2;const perSlide=cols*rows;
+    const cellW=3.2;const cellH=2.2;const gapX=0.25;const gapY=0.35;
+    const startX=0.35;const startY=0.95;
+    const slideCount=Math.ceil(attachedPhotos.length/perSlide);
+    for(let si=0;si<slideCount;si++){
+      const ps=pptx.addSlide();
+      addHeader(ps,`현장 사진 (${si+1}/${slideCount})`);
+      const chunk=attachedPhotos.slice(si*perSlide,(si+1)*perSlide);
+      chunk.forEach((photo,ci)=>{
+        const col=ci%cols;const row=Math.floor(ci/cols);
+        const x=startX+col*(cellW+gapX);
+        const y=startY+row*(cellH+gapY+(photo.caption?0.18:0));
+        try{
+          ps.addImage({data:photo.dataUrl,x,y,w:cellW,h:cellH,sizing:{type:'contain',w:cellW,h:cellH}});
+        }catch(e){/* 이미지 오류 무시 */}
+        if(photo.caption){
+          ps.addText(photo.caption,{x,y:y+cellH+0.02,w:cellW,h:0.18,fontSize:7.5,color:'555555',fontFace:FF,align:'center'});
+        }
+        /* 사진 번호 */
+        ps.addText(`${si*perSlide+ci+1}`,{x:x+0.04,y:y+0.04,w:0.22,h:0.18,fontSize:7,color:'FFFFFF',fontFace:FF,bold:true,
+          fill:{color:'1e6b47',transparency:20},align:'center'});
+      });
+    }
+  }
+
+  pptx.writeFile({fileName:`${storeName}_점검보고서_${inspDate}.pptx`});
+}
+
+/* ════════════════════════════════════
+   사진 첨부 기능 (매장+방문별 분리 저장)
+════════════════════════════════════ */
+let attachedPhotos=[];/* 현재 로드된 [{dataUrl, caption}] */
+
+/* 사진 localStorage 키 생성 */
+function _photoKey(storeId,visitId){
+  if(!storeId||!visitId)return null;
+  return 'photos_'+storeId+'_'+visitId;
+}
+
+/* 현재 매장+방문의 사진 저장 */
+function savePhotos(){
+  const key=_photoKey(CUR_STORE,CUR_VISIT);
+  if(!key)return;
+  try{
+    if(attachedPhotos.length>0){
+      localStorage.setItem(key,JSON.stringify(attachedPhotos));
+    } else {
+      localStorage.removeItem(key);
+    }
+  }catch(e){
+    console.warn('사진 저장 실패(용량 초과 가능성):',e);
+  }
+}
+
+/* 특정 매장+방문의 사진 로드 */
+function loadPhotos(storeId,visitId){
+  const key=_photoKey(storeId,visitId);
+  if(!key){attachedPhotos=[];renderPhotoGrid();return;}
+  try{
+    const raw=localStorage.getItem(key);
+    attachedPhotos=raw?JSON.parse(raw):[];
+  }catch(e){
+    attachedPhotos=[];
+  }
+  renderPhotoGrid();
+}
+
+/* 특정 매장+방문의 사진 삭제 (방문/매장 삭제 시 호출) */
+function removePhotos(storeId,visitId){
+  const key=_photoKey(storeId,visitId);
+  if(key)localStorage.removeItem(key);
+}
+
+/* 매장 전체 사진 삭제 (매장 삭제 시) */
+function removeAllPhotosForStore(storeId){
+  const prefix='photos_'+storeId+'_';
+  Object.keys(localStorage).filter(k=>k.startsWith(prefix)).forEach(k=>localStorage.removeItem(k));
+}
+
+function onPhotoFileChange(event){
+  const files=Array.from(event.target.files);
+  if(!files.length)return;
+  const remain=10-attachedPhotos.length;
+  if(remain<=0){alert('사진은 최대 10장까지 첨부할 수 있습니다.');event.target.value='';return;}
+  const toAdd=files.slice(0,remain);
+  if(files.length>remain)alert(`최대 10장까지만 첨부됩니다. ${toAdd.length}장을 추가합니다.`);
+  toAdd.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      attachedPhotos.push({dataUrl:e.target.result,caption:''});
+      renderPhotoGrid();
+      savePhotos();/* 추가 즉시 저장 */
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value='';
+}
+
+function renderPhotoGrid(){
+  const grid=document.getElementById('photoGrid');
+  const count=document.getElementById('photoCount');
+  if(!grid)return;
+  grid.innerHTML='';
+  attachedPhotos.forEach((photo,i)=>{
+    const item=document.createElement('div');
+    item.className='photo-item';
+    item.innerHTML=`<img src="${photo.dataUrl}" alt="첨부사진 ${i+1}" loading="lazy">
+      <div class="photo-item-caption">
+        <input type="text" value="${photo.caption||''}" placeholder="캡션 입력..."
+          oninput="attachedPhotos[${i}].caption=this.value;savePhotos()" maxlength="40">
+      </div>
+      <button class="photo-item-del" onclick="deletePhoto(${i})" title="삭제">×</button>`;
+    grid.appendChild(item);
+  });
+  if(count)count.textContent=attachedPhotos.length>0?`${attachedPhotos.length}장 첨부됨`:'';
+}
+
+function deletePhoto(idx){
+  attachedPhotos.splice(idx,1);
+  renderPhotoGrid();
+  savePhotos();/* 삭제 즉시 저장 */
+}
+
+/* iOS PWA */
+function isIOS(){return /iPad|iPhone|iPod/.test(navigator.userAgent);}
+function isStandalone(){return window.navigator.standalone===true||window.matchMedia('(display-mode:standalone)').matches;}
+function showIOSBanner(){
+  if(!isIOS()||isStandalone()||localStorage.getItem('pwa-dismiss'))return;
+  const b=document.createElement('div');b.id='pwa-banner';
+  b.innerHTML=`<div style="position:fixed;bottom:0;left:0;right:0;z-index:9999;background:var(--surface);border-top:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 -2px 12px rgba(0,0,0,.08);">
+    <div style="font-size:28px;">📋</div>
+    <div style="flex:1;"><div style="font-size:13px;font-weight:700;margin-bottom:2px;">홈 화면에 추가하기</div>
+    <div style="font-size:12px;color:var(--text2);">하단 공유 → "홈 화면에 추가"를 눌러주세요.</div></div>
+    <button onclick="document.getElementById('pwa-banner').remove();localStorage.setItem('pwa-dismiss','1');" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;">×</button>
+  </div>`;
+  document.body.appendChild(b);
+}
+</script>
+</body>
+</html>
