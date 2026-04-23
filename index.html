@@ -1159,7 +1159,7 @@ function refreshInputChart(){
               y:{ticks:{color:tc,font:{size:9},callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:gc}}}},
     plugins:[{id:'datalabel',afterDatasetsDraw(chart){
       const meta=chart.getDatasetMeta(0);const c=chart.ctx;
-      c.save();c.font='600 10px '맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif';c.fillStyle=lc;c.textAlign='center';
+      c.save();c.font="600 10px 'Malgun Gothic','Noto Sans KR',sans-serif";c.fillStyle=lc;c.textAlign='center';
       meta.data.forEach((bar,i)=>{
         const v=values[i];if(!v)return;
         c.fillText(v>=10000000?(v/10000000).toFixed(1)+'천만':v>=10000?(v/10000).toFixed(0)+'만':(v/1000).toFixed(0)+'천',bar.x,bar.y-6);
@@ -1350,7 +1350,7 @@ function generateReport(){
                   y:{ticks:{color:tc,font:{size:10},callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:gc}}}},
         plugins:[{id:'tl',afterDatasetsDraw(chart){
           const ds=chart.data.datasets[0];const meta=chart.getDatasetMeta(0);const c=chart.ctx;
-          c.save();c.font='500 10px '맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif';c.fillStyle=lc;c.textAlign='center';
+          c.save();c.font="500 10px 'Malgun Gothic','Noto Sans KR',sans-serif";c.fillStyle=lc;c.textAlign='center';
           meta.data.forEach((bar,i)=>{const v=ds.data[i];if(v>0)c.fillText(v>=1000000?(v/10000).toFixed(0)+'만':(v/1000).toFixed(0)+'천',bar.x,bar.y-6);});
           c.restore();
         }}]
@@ -1371,7 +1371,7 @@ function generateReport(){
                   y:{ticks:{color:tc,font:{size:10},callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:gc}}}},
         plugins:[{id:'dl2',afterDatasetsDraw(chart){
           const meta=chart.getDatasetMeta(0);const c=chart.ctx;
-          c.save();c.font='600 10px '맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif';c.fillStyle=lc;c.textAlign='center';
+          c.save();c.font="600 10px 'Malgun Gothic','Noto Sans KR',sans-serif";c.fillStyle=lc;c.textAlign='center';
           meta.data.forEach((bar,i)=>{const v=dayAvgs[i];if(v>0)c.fillText((v/10000).toFixed(1)+'만',bar.x,bar.y-6);});
           c.restore();
         }}]
@@ -1571,7 +1571,7 @@ function buildDashboard(){
           scales:{x:{ticks:{color:tc,font:{size:9},autoSkip:false,maxRotation:45},grid:{display:false}},y:{ticks:{color:tc,font:{size:9},callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:gc}}}},
         plugins:[{id:'tl',afterDatasetsDraw(chart){
           const ds=chart.data.datasets[0];const meta=chart.getDatasetMeta(0);const c=chart.ctx;
-          c.save();c.font='500 9px '맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif';c.fillStyle=lc;c.textAlign='center';
+          c.save();c.font="500 9px 'Malgun Gothic','Noto Sans KR',sans-serif";c.fillStyle=lc;c.textAlign='center';
           meta.data.forEach((bar,i)=>{const v=ds.data[i];c.fillText(v>=1000000?(v/10000).toFixed(0)+'만':(v/1000).toFixed(0)+'천',bar.x,bar.y-5);});
           c.restore();
         }}]
@@ -1588,7 +1588,7 @@ function buildDashboard(){
           scales:{x:{ticks:{color:tc,font:{size:11}},grid:{display:false}},y:{ticks:{color:tc,font:{size:9},callback:v=>(v/10000).toFixed(0)+'만'},grid:{color:gc}}}},
         plugins:[{id:'dl',afterDatasetsDraw(chart){
           const ds=chart.data.datasets[0];const meta=chart.getDatasetMeta(0);const c=chart.ctx;
-          c.save();c.font='500 10px '맑은 고딕','Malgun Gothic','Noto Sans KR',sans-serif';c.fillStyle=lc;c.textAlign='center';
+          c.save();c.font="500 10px 'Malgun Gothic','Noto Sans KR',sans-serif";c.fillStyle=lc;c.textAlign='center';
           meta.data.forEach((bar,i)=>{const v=ds.data[i];if(v)c.fillText((v/10000).toFixed(0)+'만',bar.x,bar.y-5);});
           c.restore();
         }}]
